@@ -77,6 +77,39 @@ fi
 if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 2>&1; then
     echo "   Running basic pattern checks..."
     
+    # Load ignore patterns from .secretsignore if it exists
+    IGNORE_PATTERNS=()
+    if [ -f ".secretsignore" ]; then
+        while IFS= read -r pattern || [ -n "$pattern" ]; do
+            # Skip empty lines and comments
+            [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+            IGNORE_PATTERNS+=("$pattern")
+        done < ".secretsignore"
+    fi
+    
+    # Function to check if file/pattern should be ignored
+    should_ignore() {
+        local file="$1"
+        local line="$2"
+        for pattern in "${IGNORE_PATTERNS[@]}"; do
+            # Check if pattern matches file:line format or just file
+            if [[ "$pattern" == *:* ]]; then
+                # Pattern specifies file:line
+                local ignore_file="${pattern%%:*}"
+                local ignore_line="${pattern##*:}"
+                if [[ "$file" == "$ignore_file" && "$line" == "$ignore_line" ]]; then
+                    return 0
+                fi
+            else
+                # Pattern is just a file
+                if [[ "$file" == "$pattern" ]]; then
+                    return 0
+                fi
+            fi
+        done
+        return 1
+    }
+    
     # Get list of staged files
     STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
     
@@ -84,6 +117,10 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
         # Check for common secret patterns
         for file in $STAGED_FILES; do
             if [ -f "$file" ]; then
+                # Skip if entire file is ignored
+                if should_ignore "$file" ""; then
+                    continue
+                fi
                 # Check for AWS keys
                 if grep -E 'AKIA[0-9A-Z]{16}' "$file" >/dev/null 2>&1; then
                     echo "❌ Potential AWS Access Key found in: $file"
@@ -97,14 +134,31 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
                 fi
                 
                 # Check for common password patterns
-                if grep -Ei '(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*["\x27][^"\x27]{8,}' "$file" >/dev/null 2>&1; then
-                    echo "⚠️  Potential password/secret pattern found in: $file"
-                    echo "   Please review to ensure no sensitive data is being committed."
-                    read -p "   Continue with commit? (y/N): " response
-                    case "$response" in
-                        [Yy]* ) ;;
-                        * ) exit 1;;
-                    esac
+                PASSWORD_MATCHES=$(grep -Eni '(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*["\x27][^"\x27]{8,}' "$file" 2>/dev/null || true)
+                if [ -n "$PASSWORD_MATCHES" ]; then
+                    # Filter out ignored lines
+                    FILTERED_MATCHES=""
+                    while IFS= read -r match; do
+                        line_num=$(echo "$match" | cut -d: -f1)
+                        if ! should_ignore "$file" "$line_num"; then
+                            FILTERED_MATCHES="${FILTERED_MATCHES}${match}\n"
+                        fi
+                    done <<< "$PASSWORD_MATCHES"
+                    
+                    if [ -n "$FILTERED_MATCHES" ]; then
+                        echo "⚠️  Potential password/secret pattern found in: $file"
+                        echo "   Lines with potential secrets:"
+                        echo -e "$FILTERED_MATCHES" | head -10 | sed 's/^/     /'
+                        [ $(echo -e "$FILTERED_MATCHES" | wc -l) -gt 10 ] && echo "     ... and more"
+                        echo ""
+                        echo "   Please review to ensure no sensitive data is being committed."
+                        echo "   To ignore these, add patterns to .secretsignore"
+                        read -p "   Continue with commit? (y/N): " response
+                        case "$response" in
+                            [Yy]* ) ;;
+                            * ) exit 1;;
+                        esac
+                    fi
                 fi
             fi
         done
