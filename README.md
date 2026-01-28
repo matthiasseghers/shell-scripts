@@ -1,7 +1,8 @@
 # Shell Scripts
 
-[![Shellcheck](https://github.com/matthiasseghers/shell-scripts/actions/workflows/shellcheck.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/shellcheck.yaml)
-[![Secret Scanning](https://github.com/matthiasseghers/shell-scripts/actions/workflows/trufflehog.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/trufflehog.yaml)
+[![Code Quality](https://github.com/matthiasseghers/shell-scripts/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/code-quality.yaml)
+[![Security](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml)
+[![Documentation](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml)
 
 A collection of shell scripts for various automation tasks, organized by category for easy discovery and use.
 
