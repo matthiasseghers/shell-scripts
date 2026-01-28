@@ -82,6 +82,7 @@ FRAMES_DIR="${FRAMES_DIR:-frames}"        # Output directory for frames
 OCR_DIR="${OCR_DIR:-ocr}"                 # Output directory for OCR results
 OUTPUT_FILE="${OUTPUT_FILE:-}"            # Output file name (auto-generated if not set)
 KEEP_INTERMEDIATES="${KEEP_INTERMEDIATES:-true}"  # Keep frames/ocr dirs after completion (default: true)
+KEEP_MATCHED_FRAMES="${KEEP_MATCHED_FRAMES:-false}"  # Keep only frames with matches (default: false)
 START_TIME="${START_TIME:-}"              # Start time (HH:MM:SS or seconds)
 END_TIME="${END_TIME:-}"                  # End time (HH:MM:SS or seconds)
 CLEAN_START="${CLEAN_START:-true}"        # Clean existing frames/OCR before starting
@@ -102,6 +103,7 @@ Options:
   -d, --dedup <seconds>    Deduplication threshold in seconds (default: 1)
   -o, --output <file>      Output file name (default: auto-generated with time range/timestamp)
   --clean                  Remove intermediate frames and OCR files after completion
+  --keep-matched-frames    Keep only frames that had OCR matches (saves to matched_frames/)
   --start <time>           Start time (HH:MM:SS or seconds, e.g., 00:05:30 or 330)
   --end <time>             End time (HH:MM:SS or seconds)
   --resume                 Resume from existing frames (skip extraction if frames exist)
@@ -110,8 +112,8 @@ Options:
 
 Environment Variables:
   You can also set: FPS, SEARCH_TERMS, LANGUAGE, PSM_MODE, DEDUP_THRESHOLD,
-  FRAMES_DIR, OCR_DIR, OUTPUT_FILE, KEEP_INTERMEDIATES, START_TIME, END_TIME,
-  CLEAN_START
+  FRAMES_DIR, OCR_DIR, OUTPUT_FILE, KEEP_INTERMEDIATES, KEEP_MATCHED_FRAMES,
+  START_TIME, END_TIME, CLEAN_START
 
 Examples:
   $0 video.mp4 -s "signature|takedown"
@@ -120,6 +122,7 @@ Examples:
   $0 video.mp4 -s "loading" --start 300 --end 600 --clean
   $0 video.mp4 -s "text" --resume         # Skip frame extraction, use existing frames
   $0 video.mp4 -s "pattern" --no-clean    # Keep and overwrite existing frames
+  $0 video.mp4 -s "error" --keep-matched-frames  # Save only frames with matches
   FPS=4 SEARCH_TERMS="crash" $0 video.mp4
 
 Output Files:
@@ -142,6 +145,7 @@ while [[ $# -gt 0 ]]; do
         -d|--dedup) DEDUP_THRESHOLD="$2"; shift 2 ;;
         -o|--output) OUTPUT_FILE="$2"; shift 2 ;;
         --clean) KEEP_INTERMEDIATES=false; shift ;;
+        --keep-matched-frames) KEEP_MATCHED_FRAMES=true; shift ;;
         --start) START_TIME="$2"; shift 2 ;;
         --end) END_TIME="$2"; shift 2 ;;
         --resume) RESUME_MODE=true; shift ;;
@@ -212,6 +216,7 @@ echo "PSM mode:       $PSM_MODE"
 echo "Dedup threshold: $DEDUP_THRESHOLD seconds"
 echo "Output file:    $OUTPUT_FILE"
 echo "Keep files:     $KEEP_INTERMEDIATES"
+[[ "$KEEP_MATCHED_FRAMES" == "true" ]] && echo "Matched frames: Will be saved to matched_frames/"
 [[ "$RESUME_MODE" == "true" ]] && echo "Mode:           Resume (skip extraction)"
 [[ "$CLEAN_START" == "false" ]] && echo "Clean start:    No"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -347,6 +352,27 @@ if [[ $HIT_COUNT -eq 0 ]]; then
 fi
 
 # -----------------------------
+# Save matched frames if requested
+# -----------------------------
+if [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
+    echo "➡ Saving matched frames..."
+    MATCHED_FRAMES_DIR="matched_frames"
+    mkdir -p "$MATCHED_FRAMES_DIR"
+    
+    # Extract frame names from OCR hits and copy corresponding PNG files
+    while read -r ocr_file; do
+        frame_name=$(basename "$ocr_file" .txt)
+        frame_file="$FRAMES_DIR/${frame_name}.png"
+        if [[ -f "$frame_file" ]]; then
+            cp "$frame_file" "$MATCHED_FRAMES_DIR/"
+        fi
+    done < "$HITS_FILE"
+    
+    SAVED_COUNT=$(find "$MATCHED_FRAMES_DIR" -name "*.png" -type f 2>/dev/null | wc -l)
+    echo "   Saved $SAVED_COUNT matched frames to $MATCHED_FRAMES_DIR/"
+fi
+
+# -----------------------------
 # Step 4: Convert to timestamps
 # -----------------------------
 echo "➡ Converting frame numbers to HH:MM:SS timestamps..."
@@ -397,6 +423,11 @@ rm -f "$HITS_FILE" "$TIMESTAMPS_FILE"
 if [[ "$KEEP_INTERMEDIATES" == "false" ]]; then
     echo "➡ Cleaning up intermediate files..."
     rm -rf "$FRAMES_DIR" "$OCR_DIR"
+elif [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
+    echo "➡ Cleaning up non-matching frames..."
+    # Remove all frames and OCR files, keeping only the matched_frames directory
+    rm -rf "$FRAMES_DIR" "$OCR_DIR"
+    echo "   Matched frames preserved in matched_frames/"
 else
     echo "➡ Keeping intermediate files in $FRAMES_DIR/ and $OCR_DIR/"
 fi
@@ -409,4 +440,7 @@ echo "✅ Pipeline complete!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Results saved to: $OUTPUT_FILE"
 echo "Total unique timestamps: $UNIQUE_COUNT"
+if [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
+    echo "Matched frames: matched_frames/ ($SAVED_COUNT frames)"
+fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
