@@ -9,141 +9,141 @@ echo "🔍 Scanning for secrets and sensitive data..."
 
 # Check if git-secrets is installed
 if command -v git-secrets >/dev/null 2>&1; then
-    echo "   Running git-secrets..."
-    git secrets --scan || {
-        echo ""
-        echo "❌ git-secrets found potential secrets in your commit!"
-        echo "   Please review the files above and remove any sensitive data."
-        echo "   If this is a false positive, you can:"
-        echo "   - Add the pattern to .gitallowed"
-        echo "   - Or skip this check with: git commit --no-verify"
-        exit 1
-    }
+  echo "   Running git-secrets..."
+  git secrets --scan || {
+    echo ""
+    echo "❌ git-secrets found potential secrets in your commit!"
+    echo "   Please review the files above and remove any sensitive data."
+    echo "   If this is a false positive, you can:"
+    echo "   - Add the pattern to .gitallowed"
+    echo "   - Or skip this check with: git commit --no-verify"
+    exit 1
+  }
 else
-    echo "⚠️  git-secrets not installed. Install with:"
-    echo "   brew install git-secrets"
-    echo "   Then run: git secrets --install && git secrets --register-aws"
+  echo "⚠️  git-secrets not installed. Install with:"
+  echo "   brew install git-secrets"
+  echo "   Then run: git secrets --install && git secrets --register-aws"
 fi
 
 # Check if gitleaks is installed (alternative to git-secrets)
 if command -v gitleaks >/dev/null 2>&1; then
-    echo "   Running gitleaks..."
-    gitleaks protect --staged --verbose || {
-        echo ""
-        echo "❌ Gitleaks found potential secrets in your commit!"
-        echo "   Please review the findings above and remove any sensitive data."
-        echo "   If this is a false positive, you can:"
-        echo "   - Add it to .gitleaksignore"
-        echo "   - Or skip this check with: git commit --no-verify"
-        exit 1
-    }
+  echo "   Running gitleaks..."
+  gitleaks protect --staged --verbose || {
+    echo ""
+    echo "❌ Gitleaks found potential secrets in your commit!"
+    echo "   Please review the findings above and remove any sensitive data."
+    echo "   If this is a false positive, you can:"
+    echo "   - Add it to .gitleaksignore"
+    echo "   - Or skip this check with: git commit --no-verify"
+    exit 1
+  }
 else
-    echo "⚠️  gitleaks not installed. Install with:"
-    echo "   brew install gitleaks"
+  echo "⚠️  gitleaks not installed. Install with:"
+  echo "   brew install gitleaks"
 fi
 
 # Check shell script formatting with shfmt
 if command -v shfmt >/dev/null 2>&1; then
-    echo "   Running shfmt (formatting check)..."
-    STAGED_SHELL_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash|zsh)$' || true)
-    
-    if [ -n "$STAGED_SHELL_FILES" ]; then
-        FORMATTING_ISSUES=0
-        for file in $STAGED_SHELL_FILES; do
-            if [ -f "$file" ]; then
-                if ! shfmt -d -i 2 -ci "$file" >/dev/null 2>&1; then
-                    echo "   ⚠️  Formatting issue in: $file"
-                    FORMATTING_ISSUES=1
-                fi
-            fi
-        done
-        
-        if [ $FORMATTING_ISSUES -eq 1 ]; then
-            echo ""
-            echo "❌ Shell script formatting issues detected!"
-            echo "   Run 'shfmt -w -i 2 -ci <file>' to fix formatting"
-            echo "   Or format all scripts: shfmt -w -i 2 -ci scripts/"
-            echo "   Or skip this check with: git commit --no-verify"
-            exit 1
+  echo "   Running shfmt (formatting check)..."
+  STAGED_SHELL_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(sh|bash|zsh)$' || true)
+
+  if [ -n "$STAGED_SHELL_FILES" ]; then
+    FORMATTING_ISSUES=0
+    for file in $STAGED_SHELL_FILES; do
+      if [ -f "$file" ]; then
+        if ! shfmt -d -i 2 -ci "$file" >/dev/null 2>&1; then
+          echo "   ⚠️  Formatting issue in: $file"
+          FORMATTING_ISSUES=1
         fi
+      fi
+    done
+
+    if [ $FORMATTING_ISSUES -eq 1 ]; then
+      echo ""
+      echo "❌ Shell script formatting issues detected!"
+      echo "   Run 'shfmt -w -i 2 -ci <file>' to fix formatting"
+      echo "   Or format all scripts: shfmt -w -i 2 -ci scripts/"
+      echo "   Or skip this check with: git commit --no-verify"
+      exit 1
     fi
-    echo "   ✓ Shell formatting looks good"
+  fi
+  echo "   ✓ Shell formatting looks good"
 else
-    echo "⚠️  shfmt not installed. Install with:"
-    echo "   brew install shfmt"
+  echo "⚠️  shfmt not installed. Install with:"
+  echo "   brew install shfmt"
 fi
 
 # Basic pattern checks (fallback if neither tool is installed)
 if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 2>&1; then
-    echo "   Running basic pattern checks..."
-    
-    # Load ignore patterns from .secretsignore if it exists
-    IGNORE_PATTERNS=""
-    if [ -f ".secretsignore" ]; then
-        while IFS= read -r pattern || [ -n "$pattern" ]; do
-            # Skip empty lines and comments
-            [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
-            IGNORE_PATTERNS="${IGNORE_PATTERNS}${pattern}\n"
-        done < ".secretsignore"
-    fi
-    
-    # Function to check if pattern should be ignored
-    is_ignored() {
-        local check="$1"
-        echo -e "$IGNORE_PATTERNS" | grep -Fx "$check" >/dev/null 2>&1
-    }
-    
-    # Get list of staged files
-    STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
-    
-    if [ -n "$STAGED_FILES" ]; then
-        # Check for common secret patterns
-        for file in $STAGED_FILES; do
-            if [ -f "$file" ]; then
-                # Skip if entire file is in ignore list
-                is_ignored "$file" && continue
-                # Check for AWS keys
-                if grep -E 'AKIA[0-9A-Z]{16}' "$file" >/dev/null 2>&1; then
-                    echo "❌ Potential AWS Access Key found in: $file"
-                    exit 1
-                fi
-                
-                # Check for private keys
-                if grep -E '(BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY)' "$file" >/dev/null 2>&1; then
-                    echo "❌ Potential private key found in: $file"
-                    exit 1
-                fi
-                
-                # Check for common password patterns
-                PASSWORD_MATCHES=$(grep -Eni '(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*["\x27][^"\x27]{8,}' "$file" 2>/dev/null || true)
-                if [ -n "$PASSWORD_MATCHES" ]; then
-                    # Filter out ignored lines
-                    FILTERED_MATCHES=""
-                    while IFS=: read -r line_num line_content; do
-                        is_ignored "$file:$line_num" && continue
-                        FILTERED_MATCHES="${FILTERED_MATCHES}${line_num}:${line_content}\n"
-                    done <<< "$PASSWORD_MATCHES"
-                    
-                    # Only prompt if there are non-ignored matches
-                    if [ -n "$FILTERED_MATCHES" ]; then
-                        echo "⚠️  Potential password/secret pattern found in: $file"
-                        echo "   Lines with potential secrets:"
-                        echo -e "$FILTERED_MATCHES" | head -10 | sed 's/^/     /'
-                        [ "$(echo -e "$FILTERED_MATCHES" | grep -c .)" -gt 10 ] && echo "     ... and more"
-                        echo ""
-                        echo "   To ignore false positives, add to .secretsignore (format: $file:line_number)"
-                        read -r -p "   Continue with commit? (y/N): " response
-                        case "$response" in
-                            [Yy]* ) ;;
-                            * ) exit 1;;
-                        esac
-                    fi
-                fi
-            fi
-        done
-    fi
-    
-    echo "   ✓ Basic checks passed (install git-secrets or gitleaks for thorough scanning)"
+  echo "   Running basic pattern checks..."
+
+  # Load ignore patterns from .secretsignore if it exists
+  IGNORE_PATTERNS=""
+  if [ -f ".secretsignore" ]; then
+    while IFS= read -r pattern || [ -n "$pattern" ]; do
+      # Skip empty lines and comments
+      [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
+      IGNORE_PATTERNS="${IGNORE_PATTERNS}${pattern}\n"
+    done <".secretsignore"
+  fi
+
+  # Function to check if pattern should be ignored
+  is_ignored() {
+    local check="$1"
+    echo -e "$IGNORE_PATTERNS" | grep -Fx "$check" >/dev/null 2>&1
+  }
+
+  # Get list of staged files
+  STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+  if [ -n "$STAGED_FILES" ]; then
+    # Check for common secret patterns
+    for file in $STAGED_FILES; do
+      if [ -f "$file" ]; then
+        # Skip if entire file is in ignore list
+        is_ignored "$file" && continue
+        # Check for AWS keys
+        if grep -E 'AKIA[0-9A-Z]{16}' "$file" >/dev/null 2>&1; then
+          echo "❌ Potential AWS Access Key found in: $file"
+          exit 1
+        fi
+
+        # Check for private keys
+        if grep -E '(BEGIN (RSA|DSA|EC|OPENSSH|PGP) PRIVATE KEY)' "$file" >/dev/null 2>&1; then
+          echo "❌ Potential private key found in: $file"
+          exit 1
+        fi
+
+        # Check for common password patterns
+        PASSWORD_MATCHES=$(grep -Eni '(password|passwd|pwd|secret|token|api[_-]?key)\s*[:=]\s*["\x27][^"\x27]{8,}' "$file" 2>/dev/null || true)
+        if [ -n "$PASSWORD_MATCHES" ]; then
+          # Filter out ignored lines
+          FILTERED_MATCHES=""
+          while IFS=: read -r line_num line_content; do
+            is_ignored "$file:$line_num" && continue
+            FILTERED_MATCHES="${FILTERED_MATCHES}${line_num}:${line_content}\n"
+          done <<<"$PASSWORD_MATCHES"
+
+          # Only prompt if there are non-ignored matches
+          if [ -n "$FILTERED_MATCHES" ]; then
+            echo "⚠️  Potential password/secret pattern found in: $file"
+            echo "   Lines with potential secrets:"
+            echo -e "$FILTERED_MATCHES" | head -10 | sed 's/^/     /'
+            [ "$(echo -e "$FILTERED_MATCHES" | grep -c .)" -gt 10 ] && echo "     ... and more"
+            echo ""
+            echo "   To ignore false positives, add to .secretsignore (format: $file:line_number)"
+            read -r -p "   Continue with commit? (y/N): " response
+            case "$response" in
+              [Yy]*) ;;
+              *) exit 1 ;;
+            esac
+          fi
+        fi
+      fi
+    done
+  fi
+
+  echo "   ✓ Basic checks passed (install git-secrets or gitleaks for thorough scanning)"
 fi
 
 echo "✅ Secret scanning complete!"
