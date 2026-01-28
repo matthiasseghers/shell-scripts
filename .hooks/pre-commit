@@ -78,36 +78,19 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
     echo "   Running basic pattern checks..."
     
     # Load ignore patterns from .secretsignore if it exists
-    IGNORE_PATTERNS=()
+    IGNORE_PATTERNS=""
     if [ -f ".secretsignore" ]; then
         while IFS= read -r pattern || [ -n "$pattern" ]; do
             # Skip empty lines and comments
             [[ -z "$pattern" || "$pattern" =~ ^[[:space:]]*# ]] && continue
-            IGNORE_PATTERNS+=("$pattern")
+            IGNORE_PATTERNS="${IGNORE_PATTERNS}${pattern}\n"
         done < ".secretsignore"
     fi
     
-    # Function to check if file/pattern should be ignored
-    should_ignore() {
-        local file="$1"
-        local line="$2"
-        for pattern in "${IGNORE_PATTERNS[@]}"; do
-            # Check if pattern matches file:line format or just file
-            if [[ "$pattern" == *:* ]]; then
-                # Pattern specifies file:line
-                local ignore_file="${pattern%%:*}"
-                local ignore_line="${pattern##*:}"
-                if [[ "$file" == "$ignore_file" && "$line" == "$ignore_line" ]]; then
-                    return 0
-                fi
-            else
-                # Pattern is just a file
-                if [[ "$file" == "$pattern" ]]; then
-                    return 0
-                fi
-            fi
-        done
-        return 1
+    # Function to check if pattern should be ignored
+    is_ignored() {
+        local check="$1"
+        echo -e "$IGNORE_PATTERNS" | grep -Fx "$check" >/dev/null 2>&1
     }
     
     # Get list of staged files
@@ -117,10 +100,8 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
         # Check for common secret patterns
         for file in $STAGED_FILES; do
             if [ -f "$file" ]; then
-                # Skip if entire file is ignored
-                if should_ignore "$file" ""; then
-                    continue
-                fi
+                # Skip if entire file is in ignore list
+                is_ignored "$file" && continue
                 # Check for AWS keys
                 if grep -E 'AKIA[0-9A-Z]{16}' "$file" >/dev/null 2>&1; then
                     echo "❌ Potential AWS Access Key found in: $file"
@@ -138,21 +119,19 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
                 if [ -n "$PASSWORD_MATCHES" ]; then
                     # Filter out ignored lines
                     FILTERED_MATCHES=""
-                    while IFS= read -r match; do
-                        line_num=$(echo "$match" | cut -d: -f1)
-                        if ! should_ignore "$file" "$line_num"; then
-                            FILTERED_MATCHES="${FILTERED_MATCHES}${match}\n"
-                        fi
+                    while IFS=: read -r line_num line_content; do
+                        is_ignored "$file:$line_num" && continue
+                        FILTERED_MATCHES="${FILTERED_MATCHES}${line_num}:${line_content}\n"
                     done <<< "$PASSWORD_MATCHES"
                     
+                    # Only prompt if there are non-ignored matches
                     if [ -n "$FILTERED_MATCHES" ]; then
                         echo "⚠️  Potential password/secret pattern found in: $file"
                         echo "   Lines with potential secrets:"
                         echo -e "$FILTERED_MATCHES" | head -10 | sed 's/^/     /'
-                        [ $(echo -e "$FILTERED_MATCHES" | wc -l) -gt 10 ] && echo "     ... and more"
+                        [ $(echo -e "$FILTERED_MATCHES" | grep -c .) -gt 10 ] && echo "     ... and more"
                         echo ""
-                        echo "   Please review to ensure no sensitive data is being committed."
-                        echo "   To ignore these, add patterns to .secretsignore"
+                        echo "   To ignore false positives, add to .secretsignore (format: $file:line_number)"
                         read -p "   Continue with commit? (y/N): " response
                         case "$response" in
                             [Yy]* ) ;;
