@@ -394,6 +394,7 @@ A powerful OCR (Optical Character Recognition) pipeline for searching text patte
 - **Time Range Support**: Process only specific segments of a video
 - **Deduplication**: Automatically removes duplicate hits within a configurable threshold
 - **Matched Frames Only**: Option to keep only frames where text matches were found
+- **Clip Extraction**: Extract video clips around each OCR match with configurable padding
 - **Resume Mode**: Skip frame extraction and use existing frames for faster re-runs
 - **Parallel Processing**: Automatically uses GNU parallel if available for faster OCR
 - **Clean Output**: Auto-generates timestamped output filenames to prevent overwrites
@@ -429,6 +430,11 @@ brew install ffmpeg tesseract
 | `-o, --output <file>` | Output filename | auto-generated |
 | `--clean` | Remove intermediate files after completion | keep files |
 | `--keep-matched-frames` | Keep only frames with OCR matches | false |
+| `--extract-clips` | Extract video clips around each OCR match | false |
+| `--clip-before <seconds>` | Seconds before match to include in clip | 2 |
+| `--clip-after <seconds>` | Seconds after match to include in clip | 2 |
+| `--clips-dir <directory>` | Output directory for clips | clips/ |
+| `--clip-format <format>` | Clip format: mp4, webm, mov | mp4 |
 | `--start <time>` | Start time (HH:MM:SS or seconds) | beginning |
 | `--end <time>` | End time (HH:MM:SS or seconds) | end |
 | `--resume` | Use existing frames (skip extraction) | false |
@@ -468,6 +474,24 @@ brew install ffmpeg tesseract
 # Creates matched_frames/ directory with only frames containing matches
 ```
 
+**Extract video clips** - Get video segments around each match:
+```bash
+./video-ocr.sh video.mp4 -s "signature" --extract-clips
+# Creates clips/ directory with 4-second clips (2s before + 2s after each match)
+```
+
+**Custom clip timing** - More context before/after matches:
+```bash
+./video-ocr.sh video.mp4 -s "takedown" --extract-clips --clip-before 5 --clip-after 3
+# Each clip includes 5 seconds before and 3 seconds after the match
+```
+
+**Both screenshots and clips** - Visual verification options:
+```bash
+./video-ocr.sh video.mp4 -s "error" --keep-matched-frames --extract-clips
+# Creates both matched_frames/ (screenshots) and clips/ (video segments)
+```
+
 **Environment variables** - Configure via environment:
 ```bash
 FPS=4 SEARCH_TERMS="crash" ./video-ocr.sh video.mp4
@@ -497,6 +521,12 @@ The script generates:
    - Perfect for visual verification of OCR results
    - Automatically cleans up non-matching frames
 
+4. **Video clips directory** (when using `--extract-clips`):
+   - `clips/` (or custom directory) - Video segments around each match
+   - Clips named by timestamp: `clip_HH-MM-SS.mp4`
+   - Includes configurable padding before/after the match
+   - Fast extraction using codec copy when possible
+
 ### Environment Variables
 
 All options can be set via environment variables:
@@ -511,6 +541,11 @@ All options can be set via environment variables:
 - `OUTPUT_FILE` - Output filename
 - `KEEP_INTERMEDIATES` - Keep intermediate files (default: `true`)
 - `KEEP_MATCHED_FRAMES` - Keep only matched frames (default: `false`)
+- `EXTRACT_CLIPS` - Extract video clips around matches (default: `false`)
+- `CLIP_BEFORE` - Seconds before match in clips (default: `2`)
+- `CLIP_AFTER` - Seconds after match in clips (default: `2`)
+- `CLIPS_DIR` - Clips output directory (default: `clips`)
+- `CLIP_FORMAT` - Clip format: mp4, webm, mov (default: `mp4`)
 - `START_TIME` - Start time
 - `END_TIME` - End time
 - `CLEAN_START` - Clean existing files before starting (default: `true`)
@@ -565,6 +600,27 @@ Common Page Segmentation Modes:
    ./video-ocr.sh long_video.mp4 -f 2 -s "error" --keep-matched-frames
    # Only matched frames are saved, rest are deleted
    ```
+
+8. **Context with clips**: Extract video segments to see motion and hear audio around matches:
+   ```bash
+   ./video-ocr.sh video.mp4 -s "pattern" --extract-clips
+   # Review clips/ directory to see context around each match
+   ```
+
+9. **Adjust clip timing**: Customize padding for different use cases:
+   ```bash
+   # Short clips for quick review
+   ./video-ocr.sh video.mp4 -s "text" --extract-clips --clip-before 1 --clip-after 1
+   
+   # Longer clips for full context
+   ./video-ocr.sh video.mp4 -s "text" --extract-clips --clip-before 10 --clip-after 5
+   ```
+
+10. **Create highlight reels**: Extract clips of important moments automatically:
+    ```bash
+    ./video-ocr.sh game.mp4 -s "VICTORY|DEFEAT" --extract-clips --clip-before 3 --clip-after 2
+    # All clips can be reviewed or combined into a highlight reel
+    ```
 
 ### Interrupt Handling
 

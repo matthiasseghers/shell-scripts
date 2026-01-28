@@ -86,6 +86,11 @@ KEEP_MATCHED_FRAMES="${KEEP_MATCHED_FRAMES:-false}" # Keep only frames with matc
 START_TIME="${START_TIME:-}"                        # Start time (HH:MM:SS or seconds)
 END_TIME="${END_TIME:-}"                            # End time (HH:MM:SS or seconds)
 CLEAN_START="${CLEAN_START:-true}"                  # Clean existing frames/OCR before starting
+EXTRACT_CLIPS="${EXTRACT_CLIPS:-false}"             # Extract video clips around matches (default: false)
+CLIP_BEFORE="${CLIP_BEFORE:-2}"                     # Seconds before match (default: 2)
+CLIP_AFTER="${CLIP_AFTER:-2}"                       # Seconds after match (default: 2)
+CLIPS_DIR="${CLIPS_DIR:-clips}"                     # Output directory for clips (default: clips)
+CLIP_FORMAT="${CLIP_FORMAT:-mp4}"                   # Clip output format (default: mp4)
 
 # -----------------------------
 # Parse Arguments
@@ -103,6 +108,11 @@ Options:
   -o, --output <file>      Output file name (default: auto-generated with time range/timestamp)
   --clean                  Remove intermediate frames and OCR files after completion
   --keep-matched-frames    Keep only frames that had OCR matches (saves to matched_frames/)
+  --extract-clips          Extract video clips around each OCR match
+  --clip-before <seconds>  Seconds before match to include in clip (default: 2)
+  --clip-after <seconds>   Seconds after match to include in clip (default: 2)
+  --clips-dir <directory>  Output directory for clips (default: clips/)
+  --clip-format <format>   Clip format: mp4, webm, mov (default: mp4)
   --start <time>           Start time (HH:MM:SS or seconds, e.g., 00:05:30 or 330)
   --end <time>             End time (HH:MM:SS or seconds)
   --resume                 Resume from existing frames (skip extraction if frames exist)
@@ -112,7 +122,8 @@ Options:
 Environment Variables:
   You can also set: FPS, SEARCH_TERMS, LANGUAGE, PSM_MODE, DEDUP_THRESHOLD,
   FRAMES_DIR, OCR_DIR, OUTPUT_FILE, KEEP_INTERMEDIATES, KEEP_MATCHED_FRAMES,
-  START_TIME, END_TIME, CLEAN_START
+  START_TIME, END_TIME, CLEAN_START, EXTRACT_CLIPS, CLIP_BEFORE, CLIP_AFTER,
+  CLIPS_DIR, CLIP_FORMAT
 
 Examples:
   $0 video.mp4 -s "signature|takedown"
@@ -122,6 +133,8 @@ Examples:
   $0 video.mp4 -s "text" --resume         # Skip frame extraction, use existing frames
   $0 video.mp4 -s "pattern" --no-clean    # Keep and overwrite existing frames
   $0 video.mp4 -s "error" --keep-matched-frames  # Save only frames with matches
+  $0 video.mp4 -s "takedown" --extract-clips --clip-before 5 --clip-after 3
+  $0 video.mp4 -s "signature" --extract-clips --keep-matched-frames
   FPS=4 SEARCH_TERMS="crash" $0 video.mp4
 
 Output Files:
@@ -168,6 +181,26 @@ while [[ $# -gt 0 ]]; do
     --keep-matched-frames)
       KEEP_MATCHED_FRAMES=true
       shift
+      ;;
+    --extract-clips)
+      EXTRACT_CLIPS=true
+      shift
+      ;;
+    --clip-before)
+      CLIP_BEFORE="$2"
+      shift 2
+      ;;
+    --clip-after)
+      CLIP_AFTER="$2"
+      shift 2
+      ;;
+    --clips-dir)
+      CLIPS_DIR="$2"
+      shift 2
+      ;;
+    --clip-format)
+      CLIP_FORMAT="$2"
+      shift 2
       ;;
     --start)
       START_TIME="$2"
@@ -257,6 +290,7 @@ echo "Dedup threshold: $DEDUP_THRESHOLD seconds"
 echo "Output file:    $OUTPUT_FILE"
 echo "Keep files:     $KEEP_INTERMEDIATES"
 [[ "$KEEP_MATCHED_FRAMES" == "true" ]] && echo "Matched frames: Will be saved to matched_frames/"
+[[ "$EXTRACT_CLIPS" == "true" ]] && echo "Extract clips:  Yes (${CLIP_BEFORE}s before + ${CLIP_AFTER}s after) → $CLIPS_DIR/"
 [[ "$RESUME_MODE" == "true" ]] && echo "Mode:           Resume (skip extraction)"
 [[ "$CLEAN_START" == "false" ]] && echo "Clean start:    No"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -456,6 +490,48 @@ UNIQUE_COUNT=$(wc -l <"$OUTPUT_FILE")
 echo "   $UNIQUE_COUNT unique timestamps"
 
 # -----------------------------
+# Step 6: Extract clips (if requested)
+# -----------------------------
+CLIP_COUNT=0
+if [[ "$EXTRACT_CLIPS" == "true" ]] && [[ $UNIQUE_COUNT -gt 0 ]]; then
+  echo "➡ Extracting video clips around matches..."
+  mkdir -p "$CLIPS_DIR"
+
+  # Get video duration for boundary checks
+  VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
+
+  while read -r timestamp; do
+    # Convert timestamp to seconds
+    TIME_SEC=$(time_to_seconds "$timestamp")
+
+    # Calculate clip start and end times with boundaries
+    CLIP_START=$(awk -v t="$TIME_SEC" -v before="$CLIP_BEFORE" 'BEGIN {s=t-before; print (s<0)?0:s}')
+    CLIP_END=$(awk -v t="$TIME_SEC" -v after="$CLIP_AFTER" -v dur="$VIDEO_DURATION" 'BEGIN {e=t+after; print (e>dur)?dur:e}')
+    CLIP_DURATION=$(awk -v start="$CLIP_START" -v end="$CLIP_END" 'BEGIN {print end-start}')
+
+    # Format timestamp for filename (replace : with -)
+    TIMESTAMP_FMT=$(echo "$timestamp" | tr ':' '-')
+    CLIP_FILE="$CLIPS_DIR/clip_${TIMESTAMP_FMT}.$CLIP_FORMAT"
+
+    # Extract clip using ffmpeg with copy codec for speed (re-encode if needed)
+    ffmpeg -ss "$CLIP_START" -i "$VIDEO" -t "$CLIP_DURATION" \
+      -c copy -avoid_negative_ts make_zero \
+      "$CLIP_FILE" -hide_banner -loglevel error 2>&1 || {
+      # Fallback to re-encoding if copy fails
+      ffmpeg -ss "$CLIP_START" -i "$VIDEO" -t "$CLIP_DURATION" \
+        "$CLIP_FILE" -hide_banner -loglevel error 2>&1
+    }
+
+    if [[ -f "$CLIP_FILE" ]]; then
+      ((CLIP_COUNT++))
+      echo "   Extracted clip $CLIP_COUNT/$UNIQUE_COUNT: $CLIP_FILE"
+    fi
+  done <"$OUTPUT_FILE"
+
+  echo "   Saved $CLIP_COUNT clips to $CLIPS_DIR/"
+fi
+
+# -----------------------------
 # Cleanup
 # -----------------------------
 rm -f "$HITS_FILE" "$TIMESTAMPS_FILE"
@@ -482,5 +558,8 @@ echo "Results saved to: $OUTPUT_FILE"
 echo "Total unique timestamps: $UNIQUE_COUNT"
 if [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
   echo "Matched frames: matched_frames/ ($SAVED_COUNT frames)"
+fi
+if [[ "$EXTRACT_CLIPS" == "true" ]] && [[ $CLIP_COUNT -gt 0 ]]; then
+  echo "Video clips: $CLIPS_DIR/ ($CLIP_COUNT clips)"
 fi
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
