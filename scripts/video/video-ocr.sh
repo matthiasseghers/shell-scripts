@@ -43,9 +43,9 @@ check_dependencies() {
         done
         echo ""
         echo "Please install missing tools:"
-        [[ " ${missing[@]} " =~ " ffmpeg " ]] || [[ " ${missing[@]} " =~ " ffprobe " ]] && \
+        [[ " ${missing[*]} " =~ " ffmpeg " ]] || [[ " ${missing[*]} " =~ " ffprobe " ]] && \
             echo "  • ffmpeg & ffprobe: brew install ffmpeg"
-        [[ " ${missing[@]} " =~ " tesseract " ]] && \
+        [[ " ${missing[*]} " =~ " tesseract " ]] && \
             echo "  • tesseract: brew install tesseract"
         exit 1
     fi
@@ -86,7 +86,6 @@ KEEP_MATCHED_FRAMES="${KEEP_MATCHED_FRAMES:-false}"  # Keep only frames with mat
 START_TIME="${START_TIME:-}"              # Start time (HH:MM:SS or seconds)
 END_TIME="${END_TIME:-}"                  # End time (HH:MM:SS or seconds)
 CLEAN_START="${CLEAN_START:-true}"        # Clean existing frames/OCR before starting
-AUTO_OUTPUT_FILE=false                    # Track if output file was auto-generated
 
 # -----------------------------
 # Parse Arguments
@@ -182,7 +181,6 @@ check_dependencies
 
 # Auto-generate output filename if not specified
 if [[ -z "$OUTPUT_FILE" ]]; then
-    AUTO_OUTPUT_FILE=true
     # Use video filename base for output
     VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
     if [[ -n "$START_TIME" ]] && [[ -n "$END_TIME" ]]; then
