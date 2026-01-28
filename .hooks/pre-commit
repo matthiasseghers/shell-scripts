@@ -129,10 +129,10 @@ if ! command -v git-secrets >/dev/null 2>&1 && ! command -v gitleaks >/dev/null 
                         echo "⚠️  Potential password/secret pattern found in: $file"
                         echo "   Lines with potential secrets:"
                         echo -e "$FILTERED_MATCHES" | head -10 | sed 's/^/     /'
-                        [ $(echo -e "$FILTERED_MATCHES" | grep -c .) -gt 10 ] && echo "     ... and more"
+                        [ "$(echo -e "$FILTERED_MATCHES" | grep -c .)" -gt 10 ] && echo "     ... and more"
                         echo ""
                         echo "   To ignore false positives, add to .secretsignore (format: $file:line_number)"
-                        read -p "   Continue with commit? (y/N): " response
+                        read -r -p "   Continue with commit? (y/N): " response
                         case "$response" in
                             [Yy]* ) ;;
                             * ) exit 1;;
