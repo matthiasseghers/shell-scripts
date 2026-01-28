@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Script to extract markers from FCPXML files with timeline positions
 # Usage: ./extract_markers.sh <fcpxml_file> [output_format] [marker_type]
