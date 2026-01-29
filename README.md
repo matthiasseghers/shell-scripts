@@ -4,6 +4,7 @@
 [![Security](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml)
 [![Documentation](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml)
 [![Tests](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml)
+[![Integration Tests](https://github.com/matthiasseghers/shell-scripts/actions/workflows/integration-test.yml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/integration-test.yml)
 
 A collection of shell scripts for various automation tasks, organized by category for easy discovery and use.
 
