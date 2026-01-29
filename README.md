@@ -3,6 +3,7 @@
 [![Code Quality](https://github.com/matthiasseghers/shell-scripts/actions/workflows/code-quality.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/code-quality.yaml)
 [![Security](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/security.yaml)
 [![Documentation](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/documentation.yaml)
+[![Tests](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml)
 
 A collection of shell scripts for various automation tasks, organized by category for easy discovery and use.
 
@@ -147,12 +148,53 @@ gitleaks detect --verbose
 git secrets --scan
 ```
 
+## Testing
+
+This repository includes automated tests using [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core).
+
+### Running Tests Locally
+
+```bash
+# Install BATS (macOS)
+brew install bats-core
+
+# Run unit tests only (fast, < 10 seconds)
+./run-tests.sh
+
+# Run integration tests (slow, several minutes)
+./run-integration-tests.sh
+
+# Run all tests (unit + integration)
+./run-all-tests.sh
+
+# Run specific test file
+bats tests/video/video-ocr.bats
+
+# Run with verbose output
+bats tests/ --verbose
+```
+
+### Test Types
+
+- **Unit Tests** (`.bats`): Fast validation tests that run on every commit
+- **Integration Tests** (`.integration.bats`): Slow end-to-end tests with actual file processing
+
+### CI/CD Testing
+
+Tests run automatically on GitHub Actions:
+- **Unit tests**: Run on every push and PR (< 1 minute)
+- **Integration tests**: Manual trigger or nightly schedule (up to 30 minutes)
+- **Platforms**: Ubuntu and macOS
+
+See [tests/README.md](tests/README.md) for more details on writing and running tests.
+
 ## Contributing
 
 Contributions are welcome! Please ensure scripts:
 - Are well-documented with usage examples
 - Include error handling
 - Pass shellcheck validation
+- **Pass all tests** (`./run-tests.sh`)
 - Follow existing code style
 
 ## License

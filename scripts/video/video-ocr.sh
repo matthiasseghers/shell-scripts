@@ -96,6 +96,7 @@ CLIP_FORMAT="${CLIP_FORMAT:-mp4}"                   # Clip output format (defaul
 # Parse Arguments
 # -----------------------------
 usage() {
+  local exit_code=${1:-0}
   cat <<EOF
 Usage: $0 <video_file> [options]
 
@@ -143,7 +144,7 @@ Output Files:
   - Without time range: video_2026-01-28_14-30-45.txt
   Use -o/--output to specify a custom filename.
 EOF
-  exit 0
+  exit $exit_code
 }
 
 VIDEO=""
@@ -188,10 +189,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --clip-before)
       CLIP_BEFORE="$2"
+      CLIP_BEFORE_SET=true
       shift 2
       ;;
     --clip-after)
       CLIP_AFTER="$2"
+      CLIP_AFTER_SET=true
       shift 2
       ;;
     --clips-dir)
@@ -218,10 +221,10 @@ while [[ $# -gt 0 ]]; do
       CLEAN_START=false
       shift
       ;;
-    -h | --help) usage ;;
+    -h | --help) usage 0 ;;
     -*)
       echo "Unknown option: $1"
-      usage
+      usage 1
       ;;
     *)
       VIDEO="$1"
@@ -232,7 +235,7 @@ done
 
 if [[ -z "$VIDEO" ]]; then
   echo "❌ Error: No video file specified"
-  usage
+  usage 1
 fi
 
 if [[ ! -f "$VIDEO" ]]; then
@@ -242,13 +245,89 @@ fi
 
 if [[ -z "$SEARCH_TERMS" ]]; then
   echo "❌ Error: No search terms specified. Use -s/--search or set SEARCH_TERMS environment variable"
-  usage
+  usage 1
 fi
+
+# -----------------------------
+# Validate Input Parameters
+# -----------------------------
+validate_positive_number() {
+  local value="$1"
+  local name="$2"
+  if ! [[ "$value" =~ ^[0-9]+(\.[0-9]+)?$ ]] || [[ $(awk -v v="$value" 'BEGIN {print (v <= 0)}') -eq 1 ]]; then
+    echo "❌ Error: $name must be a positive number, got: $value"
+    exit 1
+  fi
+}
+
+validate_non_negative_integer() {
+  local value="$1"
+  local name="$2"
+  if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+    echo "❌ Error: $name must be a non-negative integer, got: $value"
+    exit 1
+  fi
+}
+
+# Validate numeric parameters
+validate_positive_number "$FPS" "FPS"
+validate_non_negative_integer "$PSM_MODE" "PSM mode"
+validate_positive_number "$DEDUP_THRESHOLD" "Deduplication threshold"
+validate_positive_number "$CLIP_BEFORE" "Clip before duration"
+validate_positive_number "$CLIP_AFTER" "Clip after duration"
+
+# Validate PSM mode range (0-13 for Tesseract)
+if [[ $PSM_MODE -lt 0 ]] || [[ $PSM_MODE -gt 13 ]]; then
+  echo "❌ Error: PSM mode must be between 0 and 13, got: $PSM_MODE"
+  exit 1
+fi
+
+# Validate clip format
+case "$CLIP_FORMAT" in
+  mp4|webm|mov) ;;
+  *)
+    echo "❌ Error: Invalid clip format '$CLIP_FORMAT'. Supported: mp4, webm, mov"
+    exit 1
+    ;;
+esac
+
+# Validate time formats if provided
+validate_time_format() {
+  local time="$1"
+  local name="$2"
+  if [[ -n "$time" ]]; then
+    # Check if it's seconds (just digits) or HH:MM:SS format
+    if ! [[ "$time" =~ ^[0-9]+$ ]] && ! [[ "$time" =~ ^[0-9]{2}:[0-9]{2}:[0-9]{2}$ ]]; then
+      echo "❌ Error: $name must be in HH:MM:SS format or seconds, got: $time"
+      exit 1
+    fi
+  fi
+}
+
+validate_time_format "$START_TIME" "Start time"
+validate_time_format "$END_TIME" "End time"
 
 # Auto-set CLEAN_START=false when in resume mode
 if [[ "$RESUME_MODE" == "true" ]] && [[ "$CLEAN_START" == "true" ]]; then
   echo "⚠️  Note: --resume mode enabled, automatically disabling cleanup to preserve existing frames"
   CLEAN_START=false
+fi
+
+# Ask user if they want to enable clip extraction when duration flags are set
+if [[ "$EXTRACT_CLIPS" == "false" ]] && { [[ -n "${CLIP_BEFORE_SET:-}" ]] || [[ -n "${CLIP_AFTER_SET:-}" ]]; }; then
+  echo "⚠️  You specified --clip-before and/or --clip-after but didn't enable --extract-clips."
+  echo "   Clip extraction is currently disabled, so these settings will be ignored."
+  echo ""
+  read -p "   Do you want to enable clip extraction? (y/n): " -n 1 -r
+  echo ""
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    EXTRACT_CLIPS=true
+    echo "✅ Clip extraction enabled (${CLIP_BEFORE}s before + ${CLIP_AFTER}s after each match)"
+    echo ""
+  else
+    echo "⏭️  Continuing without clip extraction..."
+    echo ""
+  fi
 fi
 
 # Check for required dependencies
