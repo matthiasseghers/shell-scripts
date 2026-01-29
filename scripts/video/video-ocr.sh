@@ -284,7 +284,7 @@ fi
 
 # Validate clip format
 case "$CLIP_FORMAT" in
-  mp4|webm|mov) ;;
+  mp4 | webm | mov) ;;
   *)
     echo "❌ Error: Invalid clip format '$CLIP_FORMAT'. Supported: mp4, webm, mov"
     exit 1
