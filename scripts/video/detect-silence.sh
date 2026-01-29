@@ -257,20 +257,22 @@ if [[ $SILENCE_COUNT -eq 0 ]]; then
   exit 0
 fi
 
-# Get video duration to clamp timestamps
-VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
-
 # Extract frames if requested
 if [[ "$OUTPUT_FRAMES" == "true" ]]; then
   echo ""
   echo "➡ Extracting screenshot frames..."
+
+  # Get video duration to clamp timestamps
+  VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
 
   for i in "${!SILENCE_ENDS[@]}"; do
     start="${SILENCE_STARTS[i]}"
     end="${SILENCE_ENDS[i]}"
 
     # Clamp end timestamp to video duration to avoid extraction failures
-    if awk -v end="$end" -v dur="$VIDEO_DURATION" 'BEGIN {exit !(end > dur)}'; then
+    # Use awk for portable floating-point comparison
+    should_clamp=$(awk -v end="$end" -v dur="$VIDEO_DURATION" 'BEGIN {print (end > dur) ? "yes" : "no"}')
+    if [[ "$should_clamp" == "yes" ]]; then
       end="$VIDEO_DURATION"
     fi
 
