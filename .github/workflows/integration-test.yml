@@ -1,0 +1,67 @@
+name: Integration Tests
+
+on:
+  # Manual trigger
+  workflow_dispatch:
+  
+  # Run on schedule (weekly on Sunday at 2 AM UTC)
+  schedule:
+    - cron: '0 2 * * 0'
+  
+  # Optionally run on push to main (uncomment if desired)
+  # push:
+  #   branches: [ main ]
+
+jobs:
+  integration-test:
+    name: Run Integration Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg tesseract-ocr
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install ffmpeg tesseract
+
+      - name: Install BATS
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get install -y bats
+          else
+            brew install bats-core
+          fi
+
+      - name: Make integration test runner executable
+        run: chmod +x run-integration-tests.sh
+
+      - name: Run integration tests
+        run: ./run-integration-tests.sh
+        timeout-minutes: 30
+
+      - name: Upload test artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-artifacts-${{ matrix.os }}
+          path: |
+            /tmp/bats_integration_*
+            frames/
+            ocr/
+            clips/
+            *.txt
+            *.csv
+            *.json
+          retention-days: 7

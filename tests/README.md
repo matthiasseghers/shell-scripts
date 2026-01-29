@@ -217,7 +217,7 @@ Tests run automatically on GitHub Actions when you push changes. See `.github/wo
 ### Integration Tests
 Slow integration tests run on a schedule or manual trigger. See `.github/workflows/integration-test.yml` for configuration.
 
-- **Triggered by**: Manual workflow dispatch, Nightly schedule (2 AM UTC)
+- **Triggered by**: Manual workflow dispatch, Weekly schedule (Sunday 2 AM UTC)
 - **Runtime**: Up to 30 minutes
 - **Runs on**: Ubuntu and macOS
 
