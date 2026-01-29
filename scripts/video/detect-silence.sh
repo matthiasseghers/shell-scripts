@@ -270,7 +270,7 @@ if [[ "$OUTPUT_FRAMES" == "true" ]]; then
     end="${SILENCE_ENDS[i]}"
 
     # Clamp end timestamp to video duration to avoid extraction failures
-    if (($(echo "$end > $VIDEO_DURATION" | bc -l))); then
+    if awk -v end="$end" -v dur="$VIDEO_DURATION" 'BEGIN {exit !(end > dur)}'; then
       end="$VIDEO_DURATION"
     fi
 
