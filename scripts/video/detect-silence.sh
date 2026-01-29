@@ -212,21 +212,12 @@ if [[ -n "$FROM_CSV" ]]; then
   # Read from existing CSV file
   echo "➡ Reading silence data from CSV..."
 
-  # Skip header line and parse CSV
-  tail -n +2 "$FROM_CSV" | while IFS=',' read -r start_tc end_tc duration_tc start_sec end_sec duration_sec; do
+  # Skip header line and parse CSV (bash 3 compatible)
+  while IFS=',' read -r start_tc end_tc duration_tc start_sec end_sec duration_sec; do
     SILENCE_STARTS+=("$start_sec")
     SILENCE_ENDS+=("$end_sec")
     SILENCE_DURATIONS+=("$duration_sec")
-  done
-
-  # Re-read to populate arrays (subshell issue workaround)
-  mapfile -t lines < <(tail -n +2 "$FROM_CSV")
-  for line in "${lines[@]}"; do
-    IFS=',' read -r start_tc end_tc duration_tc start_sec end_sec duration_sec <<<"$line"
-    SILENCE_STARTS+=("$start_sec")
-    SILENCE_ENDS+=("$end_sec")
-    SILENCE_DURATIONS+=("$duration_sec")
-  done
+  done < <(tail -n +2 "$FROM_CSV")
 
   echo "   Loaded ${#SILENCE_ENDS[@]} silent period(s) from CSV"
 else
@@ -266,6 +257,9 @@ if [[ $SILENCE_COUNT -eq 0 ]]; then
   exit 0
 fi
 
+# Get video duration to clamp timestamps
+VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
+
 # Extract frames if requested
 if [[ "$OUTPUT_FRAMES" == "true" ]]; then
   echo ""
@@ -274,6 +268,11 @@ if [[ "$OUTPUT_FRAMES" == "true" ]]; then
   for i in "${!SILENCE_ENDS[@]}"; do
     start="${SILENCE_STARTS[i]}"
     end="${SILENCE_ENDS[i]}"
+
+    # Clamp end timestamp to video duration to avoid extraction failures
+    if (($(echo "$end > $VIDEO_DURATION" | bc -l))); then
+      end="$VIDEO_DURATION"
+    fi
 
     # Format index with leading zeros
     idx=$(printf "%02d" $((i + 1)))

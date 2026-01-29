@@ -29,59 +29,15 @@ teardown() {
 }
 
 # ==========================================
-# Archive Creation Tests
-# ==========================================
-
-@test "creates archive with timestamp" {
-  # Override the script's paths for testing
-  export HOME="$TEST_OUTPUT_DIR"
-  
-  # We'd need to modify the script to accept custom paths
-  # For now, this is a placeholder showing the intent
-  skip "Requires script modification to accept custom paths"
-}
-
-@test "verifies created zip archive" {
-  skip "Requires script modification to accept custom paths"
-}
-
-# ==========================================
-# List Backups Tests
-# ==========================================
-
-@test "lists existing backups for emulator" {
-  # Create some mock backup files
-  touch "$TEST_BACKUP_DIR/memcards_backup_2026-01-01.zip"
-  touch "$TEST_BACKUP_DIR/memcards_backup_2026-01-02.zip"
-  
-  skip "Requires script modification to accept custom backup directory"
-}
-
-@test "handles empty backup directory" {
-  skip "Requires script modification to accept custom backup directory"
-}
-
-# ==========================================
-# Restore Tests
-# ==========================================
-
-@test "restores from zip archive" {
-  # Create a test zip archive
-  (cd "$TEST_SAVES_DIR" && zip -r "$TEST_BACKUP_DIR/test_backup.zip" .)
-  
-  skip "Requires script modification to accept custom paths"
-}
-
-@test "validates backup exists before restoring" {
-  skip "Requires script modification to accept custom paths"
-}
-
-# ==========================================
 # Emulator Path Tests
 # ==========================================
 
 @test "works with pcsx2 paths" {
   if [[ -d "$HOME/Library/Application Support/PCSX2/memcards" ]]; then
+    # Pre-create backup directory to avoid interactive prompt
+    local backup_dir="$HOME/Emulator_MemoryCard_Backups/pcsx2"
+    mkdir -p "$backup_dir"
+    
     run "$SCRIPT" pcsx2 --list
     [ "$status" -eq 0 ]
   else
@@ -91,6 +47,10 @@ teardown() {
 
 @test "works with dolphin paths" {
   if [[ -d "$HOME/Library/Application Support/Dolphin/GC" ]]; then
+    # Pre-create backup directory to avoid interactive prompt
+    local backup_dir="$HOME/Emulator_MemoryCard_Backups/dolphin"
+    mkdir -p "$backup_dir"
+    
     run "$SCRIPT" dolphin --list
     [ "$status" -eq 0 ]
   else
@@ -100,6 +60,10 @@ teardown() {
 
 @test "works with ppsspp paths" {
   if [[ -d "$HOME/Library/Application Support/PPSSPP/memstick/PSP/SAVEDATA" ]]; then
+    # Pre-create backup directory to avoid interactive prompt
+    local backup_dir="$HOME/Emulator_MemoryCard_Backups/ppsspp"
+    mkdir -p "$backup_dir"
+    
     run "$SCRIPT" ppsspp --list
     [ "$status" -eq 0 ]
   else
@@ -108,7 +72,12 @@ teardown() {
 }
 
 @test "works with duckstation paths" {
+  # Check if DuckStation memcard directory exists
   if [[ -d "$HOME/Library/Application Support/DuckStation/memcards" ]]; then
+    # Also need backup directory to exist to avoid interactive prompt
+    local backup_dir="$HOME/Emulator_MemoryCard_Backups/duckstation"
+    mkdir -p "$backup_dir"
+    
     run "$SCRIPT" duckstation --list
     [ "$status" -eq 0 ]
   else
@@ -135,18 +104,4 @@ teardown() {
   
   run zip -T "$TEST_OUTPUT_DIR/corrupted.zip"
   [ "$status" -ne 0 ]
-}
-
-# ==========================================
-# Interactive Tests (Simulated)
-# ==========================================
-
-@test "creates directory when confirmed" {
-  # This would require mocking user input
-  skip "Requires interactive input simulation"
-}
-
-@test "exits when directory creation denied" {
-  # This would require mocking user input
-  skip "Requires interactive input simulation"
 }

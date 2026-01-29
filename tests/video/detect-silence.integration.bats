@@ -14,11 +14,25 @@ setup() {
   export TEST_OUTPUT_DIR="/tmp/bats_integration_silence"
   mkdir -p "$TEST_OUTPUT_DIR"
   
-  # Create a test video with actual audio (1 second)
+  # Create a test video with alternating audio and silence (4 seconds total)
+  # Use anullsrc for silent parts
   export TEST_VIDEO="$TEST_OUTPUT_DIR/test_video.mp4"
+  
+  # Create 2 second audio segment
   ffmpeg -f lavfi -i testsrc=duration=2:size=320x240:rate=1 \
          -f lavfi -i sine=frequency=1000:duration=2 \
-         -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+         -pix_fmt yuv420p "$TEST_OUTPUT_DIR/audio_part.mp4" -y >/dev/null 2>&1
+  
+  # Create 2 second silent segment
+  ffmpeg -f lavfi -i testsrc=duration=2:size=320x240:rate=1 \
+         -f lavfi -i anullsrc=duration=2 \
+         -pix_fmt yuv420p "$TEST_OUTPUT_DIR/silent_part.mp4" -y >/dev/null 2>&1
+  
+  # Concatenate them
+  echo "file '$TEST_OUTPUT_DIR/audio_part.mp4'" > "$TEST_OUTPUT_DIR/concat_list.txt"
+  echo "file '$TEST_OUTPUT_DIR/silent_part.mp4'" >> "$TEST_OUTPUT_DIR/concat_list.txt"
+  ffmpeg -f concat -safe 0 -i "$TEST_OUTPUT_DIR/concat_list.txt" \
+         -c copy "$TEST_VIDEO" -y >/dev/null 2>&1
 }
 
 teardown() {
@@ -105,11 +119,11 @@ teardown() {
   "$SCRIPT" -f csv "$TEST_VIDEO" >/dev/null 2>&1
   
   # Find the created CSV
-  local csv_file=$(ls -t silence_*.csv 2>/dev/null | head -1)
+  csv_file=$(ls -t silence_*.csv 2>/dev/null | head -1)
   
   if [[ -n "$csv_file" && -f "$csv_file" ]]; then
-    # Now use it
-    run "$SCRIPT" --from-csv "$csv_file" "$TEST_VIDEO"
+    # Now use it to generate frames
+    run "$SCRIPT" --from-csv "$csv_file" -F "$TEST_VIDEO"
     [ "$status" -eq 0 ]
   else
     skip "No CSV file was created (possibly no silence detected)"

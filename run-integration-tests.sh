@@ -57,7 +57,7 @@ export RUN_INTEGRATION_TESTS=1
 echo -e "${BLUE}Running integration tests...${NC}"
 echo ""
 
-if bats tests/**/*.integration.bats "$@"; then
+if bats --timing --show-output-of-passing-tests tests/**/*.integration.bats "$@"; then
   echo ""
   echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
   echo -e "${GREEN}✅ All integration tests passed!${NC}"
