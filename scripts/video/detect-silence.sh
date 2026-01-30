@@ -11,6 +11,7 @@ set -eo pipefail
 SILENCE_THRESHOLD="${SILENCE_THRESHOLD:--30dB}" # Volume threshold for silence
 SILENCE_DURATION="${SILENCE_DURATION:-0.5}"     # Minimum silence duration in seconds
 OUTPUT_FORMAT="${OUTPUT_FORMAT:-csv}"           # Output format: csv, txt, json
+OUTPUT_DIR="${OUTPUT_DIR:-}"                    # Parent output directory (auto-generated if not set)
 OUTPUT_FRAMES=false                             # Generate screenshot frames
 OUTPUT_VIDEO=false                              # Generate video clips
 FROM_CSV=""                                     # Read from existing CSV file
@@ -36,6 +37,7 @@ Environment Variables:
   SILENCE_THRESHOLD   Silence threshold (default: -30dB)
   SILENCE_DURATION    Minimum silence duration (default: 0.5)
   OUTPUT_FORMAT       Output format (default: csv)
+  OUTPUT_DIR          Parent output directory (default: <video_name>_silence_output)
 
 Examples:
   # Basic detection
@@ -161,21 +163,30 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
 fi
 
 # Auto-generate output filename if not specified
+VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
+
+# Auto-generate parent output directory if not specified
+if [[ -z "$OUTPUT_DIR" ]]; then
+  OUTPUT_DIR="${VIDEO_BASE}_silence_output"
+fi
+
 if [[ "$AUTO_OUTPUT" == "true" ]]; then
-  VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
-  OUTPUT_FILE="silence_${VIDEO_BASE}.${OUTPUT_FORMAT}"
+  OUTPUT_FILE="$OUTPUT_DIR/silence_${VIDEO_BASE}.${OUTPUT_FORMAT}"
 fi
 
 # Setup output directories for frames/videos
 if [[ "$OUTPUT_FRAMES" == "true" ]]; then
-  FRAMES_DIR="silence_${VIDEO_BASE}_frames"
+  FRAMES_DIR="$OUTPUT_DIR/frames"
   mkdir -p "$FRAMES_DIR"
 fi
 
 if [[ "$OUTPUT_VIDEO" == "true" ]]; then
-  VIDEOS_DIR="silence_${VIDEO_BASE}_videos"
+  VIDEOS_DIR="$OUTPUT_DIR/videos"
   mkdir -p "$VIDEOS_DIR"
 fi
+
+# Create parent output directory
+mkdir -p "$OUTPUT_DIR"
 
 # Create temporary file for ffmpeg output
 TEMP_FILE=$(mktemp)
@@ -192,6 +203,7 @@ if [[ -z "$FROM_CSV" ]]; then
 else
   echo "Reading from:    $FROM_CSV"
 fi
+echo "Output Dir:      $OUTPUT_DIR/"
 echo "Output Format:   $OUTPUT_FORMAT"
 echo "Output File:     $OUTPUT_FILE"
 if [[ "$OUTPUT_FRAMES" == "true" ]]; then
@@ -257,23 +269,22 @@ if [[ $SILENCE_COUNT -eq 0 ]]; then
   exit 0
 fi
 
+# Get video duration to clamp timestamps
+VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
+
 # Extract frames if requested
 if [[ "$OUTPUT_FRAMES" == "true" ]]; then
   echo ""
   echo "➡ Extracting screenshot frames..."
 
-  # Get video duration to clamp timestamps
-  VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO")
-
   for i in "${!SILENCE_ENDS[@]}"; do
     start="${SILENCE_STARTS[i]}"
     end="${SILENCE_ENDS[i]}"
 
-    # Clamp end timestamp to video duration to avoid extraction failures
-    # Use awk for portable floating-point comparison
-    should_clamp=$(awk -v end="$end" -v dur="$VIDEO_DURATION" 'BEGIN {print (end > dur) ? "yes" : "no"}')
-    if [[ "$should_clamp" == "yes" ]]; then
-      end="$VIDEO_DURATION"
+    # Clamp end timestamp to slightly before video duration to avoid extraction failures
+    # Subtract 0.01 seconds to ensure we're within the video duration
+    if awk -v end="$end" -v dur="$VIDEO_DURATION" 'BEGIN {exit !(end > dur)}'; then
+      end=$(awk -v dur="$VIDEO_DURATION" 'BEGIN {print dur - 0.01}')
     fi
 
     # Format index with leading zeros
@@ -283,9 +294,9 @@ if [[ "$OUTPUT_FRAMES" == "true" ]]; then
     ffmpeg -y -ss "$start" -i "$VIDEO" -frames:v 1 -q:v 2 \
       "${FRAMES_DIR}/silence_${idx}_start.jpg" 2>/dev/null
 
-    # Extract end frame
+    # Extract end frame (with error handling)
     ffmpeg -y -ss "$end" -i "$VIDEO" -frames:v 1 -q:v 2 \
-      "${FRAMES_DIR}/silence_${idx}_end.jpg" 2>/dev/null
+      "${FRAMES_DIR}/silence_${idx}_end.jpg" 2>/dev/null || true
 
     echo "   ✓ Extracted frames for silence #$idx"
   done

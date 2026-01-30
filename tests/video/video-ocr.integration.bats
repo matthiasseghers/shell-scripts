@@ -23,7 +23,7 @@ setup() {
 
 teardown() {
   rm -rf "$TEST_OUTPUT_DIR"
-  rm -rf frames ocr clips matched_frames
+  rm -rf *_output
   rm -f test_video*.txt
 }
 
@@ -41,16 +41,16 @@ teardown() {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --fps 1 '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
   
-  # Should create frames directory
-  [[ -d frames ]]
+  # Should create output directory with frames subdirectory
+  [[ -d test_video_output/frames ]]
 }
 
 @test "performs OCR on extracted frames" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
   
-  # Should create OCR directory
-  [[ -d ocr ]]
+  # Should create output directory with ocr subdirectory
+  [[ -d test_video_output/ocr ]]
 }
 
 @test "creates output file with results" {
@@ -69,7 +69,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # 2 second video at 1 fps should produce ~2 frames
-  local frame_count=$(ls frames/*.png 2>/dev/null | wc -l | tr -d ' ')
+  local frame_count=$(ls test_video_output/frames/*.png 2>/dev/null | wc -l | tr -d ' ')
   [ "$frame_count" -ge 1 ]
 }
 
@@ -77,16 +77,16 @@ teardown() {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --clean '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
   
-  # Frames and OCR should be cleaned up
-  [[ ! -d frames ]] && [[ ! -d ocr ]]
+  # Frames and OCR subdirectories should be cleaned up
+  [[ ! -d test_video_output/frames ]] && [[ ! -d test_video_output/ocr ]]
 }
 
 @test "keeps intermediate files by default" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
   
-  # Frames and OCR should still exist
-  [[ -d frames ]] || [[ -d ocr ]]
+  # Frames and OCR should still exist in output directory
+  [[ -d test_video_output/frames ]] || [[ -d test_video_output/ocr ]]
 }
 
 # ==========================================
@@ -143,8 +143,8 @@ teardown() {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --resume '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
   
-  # Should use existing frames
-  [[ -d frames ]]
+  # Should use existing frames in output directory
+  [[ -d test_video_output/frames ]]
 }
 
 # ==========================================

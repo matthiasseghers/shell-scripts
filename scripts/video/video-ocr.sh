@@ -78,8 +78,9 @@ SEARCH_TERMS="${SEARCH_TERMS:-}"                    # Terms to search (pipe-sepa
 PSM_MODE="${PSM_MODE:-6}"                           # Tesseract PSM mode (default: 6)
 LANGUAGE="${LANGUAGE:-eng}"                         # OCR language (default: eng)
 DEDUP_THRESHOLD="${DEDUP_THRESHOLD:-1}"             # Seconds gap to consider unique (default: 1)
-FRAMES_DIR="${FRAMES_DIR:-frames}"                  # Output directory for frames
-OCR_DIR="${OCR_DIR:-ocr}"                           # Output directory for OCR results
+OUTPUT_DIR="${OUTPUT_DIR:-}"                        # Parent output directory (auto-generated if not set)
+FRAMES_DIR="${FRAMES_DIR:-frames}"                  # Output directory for frames (relative to OUTPUT_DIR)
+OCR_DIR="${OCR_DIR:-ocr}"                           # Output directory for OCR results (relative to OUTPUT_DIR)
 OUTPUT_FILE="${OUTPUT_FILE:-}"                      # Output file name (auto-generated if not set)
 KEEP_INTERMEDIATES="${KEEP_INTERMEDIATES:-true}"    # Keep frames/ocr dirs after completion (default: true)
 KEEP_MATCHED_FRAMES="${KEEP_MATCHED_FRAMES:-false}" # Keep only frames with matches (default: false)
@@ -89,7 +90,7 @@ CLEAN_START="${CLEAN_START:-true}"                  # Clean existing frames/OCR 
 EXTRACT_CLIPS="${EXTRACT_CLIPS:-false}"             # Extract video clips around matches (default: false)
 CLIP_BEFORE="${CLIP_BEFORE:-2}"                     # Seconds before match (default: 2)
 CLIP_AFTER="${CLIP_AFTER:-2}"                       # Seconds after match (default: 2)
-CLIPS_DIR="${CLIPS_DIR:-clips}"                     # Output directory for clips (default: clips)
+CLIPS_DIR="${CLIPS_DIR:-clips}"                     # Output directory for clips (default: clips, relative to OUTPUT_DIR)
 CLIP_FORMAT="${CLIP_FORMAT:-mp4}"                   # Clip output format (default: mp4)
 
 # -----------------------------
@@ -122,7 +123,7 @@ Options:
 
 Environment Variables:
   You can also set: FPS, SEARCH_TERMS, LANGUAGE, PSM_MODE, DEDUP_THRESHOLD,
-  FRAMES_DIR, OCR_DIR, OUTPUT_FILE, KEEP_INTERMEDIATES, KEEP_MATCHED_FRAMES,
+  OUTPUT_DIR, FRAMES_DIR, OCR_DIR, OUTPUT_FILE, KEEP_INTERMEDIATES, KEEP_MATCHED_FRAMES,
   START_TIME, END_TIME, CLEAN_START, EXTRACT_CLIPS, CLIP_BEFORE, CLIP_AFTER,
   CLIPS_DIR, CLIP_FORMAT
 
@@ -333,18 +334,27 @@ fi
 # Check for required dependencies
 check_dependencies
 
+# Auto-generate parent output directory if not specified
+VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
+if [[ -z "$OUTPUT_DIR" ]]; then
+  OUTPUT_DIR="${VIDEO_BASE}_output"
+fi
+
+# Update subdirectory paths to be inside the parent output directory
+FRAMES_DIR="$OUTPUT_DIR/$FRAMES_DIR"
+OCR_DIR="$OUTPUT_DIR/$OCR_DIR"
+CLIPS_DIR="$OUTPUT_DIR/$CLIPS_DIR"
+
 # Auto-generate output filename if not specified
 if [[ -z "$OUTPUT_FILE" ]]; then
-  # Use video filename base for output
-  VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
   if [[ -n "$START_TIME" ]] && [[ -n "$END_TIME" ]]; then
     # Format time range for filename
     START_FMT=$(echo "$START_TIME" | tr ':' '-')
     END_FMT=$(echo "$END_TIME" | tr ':' '-')
-    OUTPUT_FILE="${VIDEO_BASE}_${START_FMT}_to_${END_FMT}.txt"
+    OUTPUT_FILE="$OUTPUT_DIR/${VIDEO_BASE}_${START_FMT}_to_${END_FMT}.txt"
   else
     # Use timestamp
-    OUTPUT_FILE="${VIDEO_BASE}_$(date +%Y-%m-%d_%H-%M-%S).txt"
+    OUTPUT_FILE="$OUTPUT_DIR/${VIDEO_BASE}_$(date +%Y-%m-%d_%H-%M-%S).txt"
   fi
 fi
 
@@ -366,9 +376,10 @@ echo "Search terms:   $SEARCH_TERMS"
 echo "OCR language:   $LANGUAGE"
 echo "PSM mode:       $PSM_MODE"
 echo "Dedup threshold: $DEDUP_THRESHOLD seconds"
+echo "Output dir:     $OUTPUT_DIR/"
 echo "Output file:    $OUTPUT_FILE"
 echo "Keep files:     $KEEP_INTERMEDIATES"
-[[ "$KEEP_MATCHED_FRAMES" == "true" ]] && echo "Matched frames: Will be saved to matched_frames/"
+[[ "$KEEP_MATCHED_FRAMES" == "true" ]] && echo "Matched frames: Will be saved to $OUTPUT_DIR/matched_frames/"
 [[ "$EXTRACT_CLIPS" == "true" ]] && echo "Extract clips:  Yes (${CLIP_BEFORE}s before + ${CLIP_AFTER}s after) → $CLIPS_DIR/"
 [[ "$RESUME_MODE" == "true" ]] && echo "Mode:           Resume (skip extraction)"
 [[ "$CLEAN_START" == "false" ]] && echo "Clean start:    No"
@@ -378,7 +389,7 @@ echo ""
 # -----------------------------
 # Create directories
 # -----------------------------
-mkdir -p "$FRAMES_DIR" "$OCR_DIR"
+mkdir -p "$OUTPUT_DIR" "$FRAMES_DIR" "$OCR_DIR"
 
 # -----------------------------
 # Cleanup existing files if needed
@@ -509,7 +520,7 @@ fi
 # -----------------------------
 if [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
   echo "➡ Saving matched frames..."
-  MATCHED_FRAMES_DIR="matched_frames"
+  MATCHED_FRAMES_DIR="$OUTPUT_DIR/matched_frames"
   mkdir -p "$MATCHED_FRAMES_DIR"
 
   # Extract frame names from OCR hits and copy corresponding PNG files
@@ -622,7 +633,7 @@ elif [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
   echo "➡ Cleaning up non-matching frames..."
   # Remove all frames and OCR files, keeping only the matched_frames directory
   rm -rf "$FRAMES_DIR" "$OCR_DIR"
-  echo "   Matched frames preserved in matched_frames/"
+  echo "   Matched frames preserved in $OUTPUT_DIR/matched_frames/"
 else
   echo "➡ Keeping intermediate files in $FRAMES_DIR/ and $OCR_DIR/"
 fi
@@ -633,10 +644,11 @@ fi
 echo ""
 echo "✅ Pipeline complete!"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Output directory: $OUTPUT_DIR/"
 echo "Results saved to: $OUTPUT_FILE"
 echo "Total unique timestamps: $UNIQUE_COUNT"
 if [[ "$KEEP_MATCHED_FRAMES" == "true" ]]; then
-  echo "Matched frames: matched_frames/ ($SAVED_COUNT frames)"
+  echo "Matched frames: $OUTPUT_DIR/matched_frames/ ($SAVED_COUNT frames)"
 fi
 if [[ "$EXTRACT_CLIPS" == "true" ]] && [[ $CLIP_COUNT -gt 0 ]]; then
   echo "Video clips: $CLIPS_DIR/ ($CLIP_COUNT clips)"

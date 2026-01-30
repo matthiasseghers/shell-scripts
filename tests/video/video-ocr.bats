@@ -19,7 +19,7 @@ setup() {
 
 teardown() {
   # Clean up test artifacts
-  rm -rf frames ocr clips matched_frames *.txt
+  rm -rf *_output *.txt
   rm -rf "$TEST_OUTPUT_DIR"
 }
 

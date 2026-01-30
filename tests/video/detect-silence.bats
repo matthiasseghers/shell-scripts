@@ -19,8 +19,7 @@ setup() {
 
 teardown() {
   # Clean up test artifacts
-  rm -f silence_*.csv silence_*.txt silence_*.json
-  rm -rf silence_*_frames silence_*_videos
+  rm -rf *_silence_output
   rm -rf "$TEST_OUTPUT_DIR"
 }
 

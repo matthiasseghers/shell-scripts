@@ -37,8 +37,7 @@ setup() {
 
 teardown() {
   rm -rf "$TEST_OUTPUT_DIR"
-  rm -f silence_*.csv silence_*.txt silence_*.json
-  rm -rf silence_*_frames silence_*_videos
+  rm -rf *_silence_output
 }
 
 # ==========================================
@@ -48,8 +47,8 @@ teardown() {
 @test "processes video with default settings" {
   run "$SCRIPT" "$TEST_VIDEO"
   [ "$status" -eq 0 ]
-  # Should create output file
-  [[ -f silence_test_video.csv ]] || [[ -f silence_*.csv ]]
+  # Should create output directory with CSV file
+  [[ -f test_video_silence_output/silence_test_video.csv ]]
 }
 
 @test "processes video with custom threshold" {
@@ -65,19 +64,19 @@ teardown() {
 @test "creates CSV output format" {
   run "$SCRIPT" -f csv "$TEST_VIDEO"
   [ "$status" -eq 0 ]
-  [[ -f silence_test_video.csv ]]
+  [[ -f test_video_silence_output/silence_test_video.csv ]]
 }
 
 @test "creates TXT output format" {
   run "$SCRIPT" -f txt "$TEST_VIDEO"
   [ "$status" -eq 0 ]
-  [[ -f silence_test_video.txt ]]
+  [[ -f test_video_silence_output/silence_test_video.txt ]]
 }
 
 @test "creates JSON output format" {
   run "$SCRIPT" -f json "$TEST_VIDEO"
   [ "$status" -eq 0 ]
-  [[ -f silence_test_video.json ]]
+  [[ -f test_video_silence_output/silence_test_video.json ]]
 }
 
 @test "creates custom output filename" {
@@ -107,7 +106,7 @@ teardown() {
 @test "processes with combined short options" {
   run "$SCRIPT" -t -35dB -d 0.8 -f csv "$TEST_VIDEO"
   [ "$status" -eq 0 ]
-  [[ -f silence_test_video.csv ]]
+  [[ -f test_video_silence_output/silence_test_video.csv ]]
 }
 
 # ==========================================
@@ -118,10 +117,10 @@ teardown() {
   # First create a CSV
   "$SCRIPT" -f csv "$TEST_VIDEO" >/dev/null 2>&1
   
-  # Find the created CSV
-  csv_file=$(ls -t silence_*.csv 2>/dev/null | head -1)
+  # Find the created CSV in new directory structure
+  csv_file="test_video_silence_output/silence_test_video.csv"
   
-  if [[ -n "$csv_file" && -f "$csv_file" ]]; then
+  if [[ -f "$csv_file" ]]; then
     # Now use it to generate frames
     run "$SCRIPT" --from-csv "$csv_file" -F "$TEST_VIDEO"
     [ "$status" -eq 0 ]
@@ -137,9 +136,9 @@ teardown() {
 @test "CSV output has valid structure" {
   "$SCRIPT" -f csv "$TEST_VIDEO" >/dev/null 2>&1
   
-  local csv_file=$(ls -t silence_*.csv 2>/dev/null | head -1)
+  local csv_file="test_video_silence_output/silence_test_video.csv"
   
-  if [[ -n "$csv_file" && -f "$csv_file" ]]; then
+  if [[ -f "$csv_file" ]]; then
     # Check for header or content
     run cat "$csv_file"
     [ "$status" -eq 0 ]

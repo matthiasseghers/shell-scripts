@@ -95,13 +95,17 @@ SILENCE_THRESHOLD=-25dB SILENCE_DURATION=1.0 ./detect-silence.sh video.mp4
 **Extract screenshot frames for review**:
 ```bash
 ./detect-silence.sh video.mp4 -F
-# Creates: silence_video.csv + silence_video_frames/ directory
+# Creates: video_silence_output/
+#   ├── silence_video.csv
+#   └── frames/
 ```
 
 **Extract video clips of silent periods**:
 ```bash
 ./detect-silence.sh video.mp4 -V
-# Creates: silence_video.csv + silence_video_videos/ directory
+# Creates: video_silence_output/
+#   ├── silence_video.csv
+#   └── videos/
 ```
 
 **Both frames and videos**:
@@ -217,12 +221,12 @@ Find natural break points longer than 1 second.
 ```bash
 ./detect-silence.sh screencast.mp4 -t -40dB -d 0.5 -F
 ```
-Identify pauses that could be trimmed, with visual previews.
+Identify pauses that could be trimmed, with visual previews in `screencast_silence_output/frames/`.
 
 **3. Visual Review Before Editing**
 ```bash
 ./detect-silence.sh video.mp4 -t -45dB -F
-# Check generated screenshots in silence_video_frames/
+# Check generated screenshots in video_silence_output/frames/
 # Verify which silences are worth removing
 ```
 
@@ -242,7 +246,7 @@ done
 **6. Preview Clips Before Committing to Edits**
 ```bash
 ./detect-silence.sh video.mp4 -t -45dB -V
-# Review clips in silence_video_videos/ directory
+# Review clips in video_silence_output/videos/ directory
 # Decide which sections to actually edit out
 ```
 
@@ -304,15 +308,15 @@ open silence_interview.csv
 ./detect-silence.sh interview.mp4 -t -45dB -d 1.0 -F
 
 # 2. Review screenshots in Finder/file browser
-open silence_interview_frames/
+open interview_silence_output/frames/
 
 # 3. Identify which silences to keep/remove
 
 # 4. Optionally generate video clips for closer inspection
-./detect-silence.sh interview.mp4 -c silence_interview.csv -V
+./detect-silence.sh interview.mp4 -c interview_silence_output/silence_interview.csv -V
 
 # 5. Review video clips
-open silence_interview_videos/
+open interview_silence_output/videos/
 
 # 6. Use CSV timestamps in your video editor to make cuts
 ```
@@ -471,13 +475,13 @@ brew install ffmpeg tesseract
 **Keep only matched frames** - Save frames where text was found:
 ```bash
 ./video-ocr.sh video.mp4 -s "error|warning" --keep-matched-frames
-# Creates matched_frames/ directory with only frames containing matches
+# Creates video_output/matched_frames/ directory with only frames containing matches
 ```
 
 **Extract video clips** - Get video segments around each match:
 ```bash
 ./video-ocr.sh video.mp4 -s "signature" --extract-clips
-# Creates clips/ directory with 4-second clips (2s before + 2s after each match)
+# Creates video_output/clips/ directory with 4-second clips (2s before + 2s after each match)
 ```
 
 **Custom clip timing** - More context before/after matches:
@@ -489,7 +493,7 @@ brew install ffmpeg tesseract
 **Both screenshots and clips** - Visual verification options:
 ```bash
 ./video-ocr.sh video.mp4 -s "error" --keep-matched-frames --extract-clips
-# Creates both matched_frames/ (screenshots) and clips/ (video segments)
+# Creates both video_output/matched_frames/ (screenshots) and video_output/clips/ (video segments)
 ```
 
 **Environment variables** - Configure via environment:
@@ -504,28 +508,48 @@ FPS=4 SEARCH_TERMS="crash" ./video-ocr.sh video.mp4
 
 ### Output
 
-The script generates:
+The script generates all output in a video-specific directory (default: `<video_name>_output/`):
 
 1. **Timestamps file** (default or specified with `-o`):
    - Auto-generated filenames include time range or timestamp
    - Format: `video_00-05-00_to_00-10-00.txt` or `video_2026-01-28_14-30-45.txt`
    - Contains deduplicated timestamps in HH:MM:SS format
+   - Located in: `<video_name>_output/`
 
 2. **Intermediate directories** (kept by default):
-   - `frames/` - Extracted frame images (PNG)
-   - `ocr/` - OCR text output files (TXT)
+   - `<video_name>_output/frames/` - Extracted frame images (PNG)
+   - `<video_name>_output/ocr/` - OCR text output files (TXT)
    - Use `--clean` to remove after completion
 
 3. **Matched frames directory** (when using `--keep-matched-frames`):
-   - `matched_frames/` - Only frames where text matches were found
+   - `<video_name>_output/matched_frames/` - Only frames where text matches were found
    - Perfect for visual verification of OCR results
    - Automatically cleans up non-matching frames
 
 4. **Video clips directory** (when using `--extract-clips`):
-   - `clips/` (or custom directory) - Video segments around each match
+   - `<video_name>_output/clips/` (or custom directory) - Video segments around each match
    - Clips named by timestamp: `clip_HH-MM-SS.mp4`
    - Includes configurable padding before/after the match
    - Fast extraction using codec copy when possible
+
+**Example output structure:**
+```
+video_output/
+├── video_2026-01-30_14-25-00.txt    # Timestamps of matches
+├── frames/                           # All extracted frames
+│   ├── frame_00001.png
+│   ├── frame_00002.png
+│   └── ...
+├── ocr/                             # OCR text files
+│   ├── frame_00001.txt
+│   ├── frame_00002.txt
+│   └── ...
+├── matched_frames/                  # Only frames with matches (if --keep-matched-frames)
+│   └── frame_00042.png
+└── clips/                           # Video clips (if --extract-clips)
+    ├── clip_00-01-23.mp4
+    └── clip_00-05-42.mp4
+```
 
 ### Environment Variables
 
@@ -536,15 +560,16 @@ All options can be set via environment variables:
 - `LANGUAGE` - OCR language
 - `PSM_MODE` - Tesseract PSM mode
 - `DEDUP_THRESHOLD` - Deduplication threshold in seconds
-- `FRAMES_DIR` - Frames output directory (default: `frames`)
-- `OCR_DIR` - OCR output directory (default: `ocr`)
+- `OUTPUT_DIR` - Parent output directory (default: `<video_name>_output`)
+- `FRAMES_DIR` - Frames subdirectory name (default: `frames`, relative to OUTPUT_DIR)
+- `OCR_DIR` - OCR subdirectory name (default: `ocr`, relative to OUTPUT_DIR)
 - `OUTPUT_FILE` - Output filename
 - `KEEP_INTERMEDIATES` - Keep intermediate files (default: `true`)
 - `KEEP_MATCHED_FRAMES` - Keep only matched frames (default: `false`)
 - `EXTRACT_CLIPS` - Extract video clips around matches (default: `false`)
 - `CLIP_BEFORE` - Seconds before match in clips (default: `2`)
 - `CLIP_AFTER` - Seconds after match in clips (default: `2`)
-- `CLIPS_DIR` - Clips output directory (default: `clips`)
+- `CLIPS_DIR` - Clips subdirectory name (default: `clips`, relative to OUTPUT_DIR)
 - `CLIP_FORMAT` - Clip format: mp4, webm, mov (default: `mp4`)
 - `START_TIME` - Start time
 - `END_TIME` - End time
@@ -592,7 +617,7 @@ Common Page Segmentation Modes:
 6. **Visual verification of matches**: Use `--keep-matched-frames` to review what the OCR actually detected:
    ```bash
    ./video-ocr.sh video.mp4 -s "pattern" --keep-matched-frames
-   open matched_frames/  # Review frames with matches
+   open video_output/matched_frames/  # Review frames with matches
    ```
 
 7. **Save space with matched frames**: When processing large videos, keep only relevant frames:
@@ -604,7 +629,7 @@ Common Page Segmentation Modes:
 8. **Context with clips**: Extract video segments to see motion and hear audio around matches:
    ```bash
    ./video-ocr.sh video.mp4 -s "pattern" --extract-clips
-   # Review clips/ directory to see context around each match
+   # Review video_output/clips/ directory to see context around each match
    ```
 
 9. **Adjust clip timing**: Customize padding for different use cases:
