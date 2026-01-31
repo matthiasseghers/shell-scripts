@@ -23,7 +23,7 @@ setup() {
 
 teardown() {
   rm -rf "$TEST_OUTPUT_DIR"
-  rm -rf *_output
+  rm -rf *_ocr_output
   rm -f test_video*.txt
 }
 
@@ -42,7 +42,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # Should create output directory with frames subdirectory
-  [[ -d test_video_output/frames ]]
+  [[ -d test_video_ocr_output/frames ]]
 }
 
 @test "performs OCR on extracted frames" {
@@ -50,7 +50,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # Should create output directory with ocr subdirectory
-  [[ -d test_video_output/ocr ]]
+  [[ -d test_video_ocr_output/ocr ]]
 }
 
 @test "creates output file with results" {
@@ -69,7 +69,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # 2 second video at 1 fps should produce ~2 frames
-  local frame_count=$(ls test_video_output/frames/*.png 2>/dev/null | wc -l | tr -d ' ')
+  local frame_count=$(ls test_video_ocr_output/frames/*.png 2>/dev/null | wc -l | tr -d ' ')
   [ "$frame_count" -ge 1 ]
 }
 
@@ -78,7 +78,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # Frames and OCR subdirectories should be cleaned up
-  [[ ! -d test_video_output/frames ]] && [[ ! -d test_video_output/ocr ]]
+  [[ ! -d test_video_ocr_output/frames ]] && [[ ! -d test_video_ocr_output/ocr ]]
 }
 
 @test "keeps intermediate files by default" {
@@ -86,7 +86,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # Frames and OCR should still exist in output directory
-  [[ -d test_video_output/frames ]] || [[ -d test_video_output/ocr ]]
+  [[ -d test_video_ocr_output/frames ]] || [[ -d test_video_ocr_output/ocr ]]
 }
 
 # ==========================================
@@ -144,7 +144,7 @@ teardown() {
   [ "$status" -eq 0 ]
   
   # Should use existing frames in output directory
-  [[ -d test_video_output/frames ]]
+  [[ -d test_video_ocr_output/frames ]]
 }
 
 # ==========================================
@@ -182,4 +182,33 @@ teardown() {
 @test "completes processing in reasonable time" {
   # Skip timeout test - timeout command not available on macOS
   skip "timeout command not available on macOS (use gtimeout from coreutils)"
+}
+
+# ==========================================
+# Directory Naming Tests
+# ==========================================
+
+@test "output directory uses _ocr_output suffix" {
+  run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
+  [ "$status" -eq 0 ]
+  
+  # Should create directory with _ocr_output suffix, not just _output
+  [[ -d test_video_ocr_output ]]
+  [[ ! -d test_video_output ]]
+}
+
+@test "clips use timestamp-based naming" {
+  # This test verifies clip naming follows HH-MM-SS format
+  run bash -c "echo 'y' | $SCRIPT -s 'TEST' --clip-before 1 --clip-after 1 '$TEST_VIDEO'"
+  [ "$status" -eq 0 ]
+  
+  if [[ -d test_video_ocr_output/clips ]]; then
+    # Check for timestamp pattern in clip names (clip_HH-MM-SS.mp4)
+    local timestamp_clips=$(ls test_video_ocr_output/clips/clip_*-*-*.mp4 2>/dev/null | wc -l | tr -d ' ')
+    
+    # If clips were created, they should use timestamp format
+    if [[ -n "$(ls test_video_ocr_output/clips/*.mp4 2>/dev/null)" ]]; then
+      [[ $timestamp_clips -gt 0 ]]
+    fi
+  fi
 }

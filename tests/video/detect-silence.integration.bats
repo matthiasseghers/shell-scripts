@@ -152,3 +152,95 @@ teardown() {
   run "$SCRIPT" "$spaced_video"
   [ "$status" -eq 0 ]
 }
+
+# ==========================================
+# Naming Convention Tests
+# ==========================================
+
+@test "frames use timestamp-based naming not sequential" {
+  "$SCRIPT" -F "$TEST_VIDEO" >/dev/null 2>&1
+  
+  if [[ -d test_video_silence_output/frames ]]; then
+    # Check that frames exist with timestamp pattern (HH-MM-SS-mmm format)
+    # Should match pattern like: silence_00-00-02-000_start.jpg
+    local timestamp_frames=$(ls test_video_silence_output/frames/silence_*-*-*_*.jpg 2>/dev/null | wc -l | tr -d ' ')
+    
+    # Should NOT have sequential naming like silence_01_start.jpg
+    local sequential_frames=$(ls test_video_silence_output/frames/silence_[0-9][0-9]_*.jpg 2>/dev/null | wc -l | tr -d ' ')
+    
+    [[ $timestamp_frames -gt 0 ]] && [[ $sequential_frames -eq 0 ]]
+  else
+    skip "No silence detected in test video (no frames generated)"
+  fi
+}
+
+@test "video clips use timestamp-based naming not sequential" {
+  "$SCRIPT" -V "$TEST_VIDEO" >/dev/null 2>&1
+  
+  if [[ -d test_video_silence_output/videos ]]; then
+    # Check that clips exist with timestamp pattern (HH-MM-SS-mmm format)
+    # Should match pattern like: silence_00-00-02-000.mp4
+    local timestamp_clips=$(ls test_video_silence_output/videos/silence_*-*-*.mp4 2>/dev/null | wc -l | tr -d ' ')
+    
+    # Should NOT have sequential naming like silence_01.mp4
+    local sequential_clips=$(ls test_video_silence_output/videos/silence_[0-9][0-9].mp4 2>/dev/null | wc -l | tr -d ' ')
+    
+    [[ $timestamp_clips -gt 0 ]] && [[ $sequential_clips -eq 0 ]]
+  else
+    skip "No silence detected in test video (no clips generated)"
+  fi
+}
+
+@test "re-running with frames does not overwrite existing files" {
+  # First run to create frames
+  "$SCRIPT" -F "$TEST_VIDEO" >/dev/null 2>&1
+  
+  if [[ -d test_video_silence_output/frames ]]; then
+    # Get list of files and their timestamps
+    local first_run_files=$(ls -1 test_video_silence_output/frames/*.jpg 2>/dev/null | sort)
+    local first_run_count=$(echo "$first_run_files" | wc -l | tr -d ' ')
+    
+    # Sleep to ensure modification times would differ
+    sleep 1
+    
+    # Run again - should create same files (based on same silence timestamps)
+    "$SCRIPT" -F "$TEST_VIDEO" >/dev/null 2>&1
+    
+    local second_run_files=$(ls -1 test_video_silence_output/frames/*.jpg 2>/dev/null | sort)
+    local second_run_count=$(echo "$second_run_files" | wc -l | tr -d ' ')
+    
+    # Should have same number of files (timestamp-based naming means same timestamps = same filenames)
+    [[ $first_run_count -eq $second_run_count ]]
+    
+    # File list should be identical (same filenames)
+    [[ "$first_run_files" == "$second_run_files" ]]
+  else
+    skip "No silence detected in test video (no frames generated)"
+  fi
+}
+
+@test "re-running with clips does not overwrite with different names" {
+  # First run to create clips
+  "$SCRIPT" -V "$TEST_VIDEO" >/dev/null 2>&1
+  
+  if [[ -d test_video_silence_output/videos ]]; then
+    # Get list of files
+    local first_run_files=$(ls -1 test_video_silence_output/videos/*.mp4 2>/dev/null | sort)
+    local first_run_count=$(echo "$first_run_files" | wc -l | tr -d ' ')
+    
+    # Run again
+    "$SCRIPT" -V "$TEST_VIDEO" >/dev/null 2>&1
+    
+    local second_run_files=$(ls -1 test_video_silence_output/videos/*.mp4 2>/dev/null | sort)
+    local second_run_count=$(echo "$second_run_files" | wc -l | tr -d ' ')
+    
+    # Should have same number of files (not doubled)
+    # Timestamp-based naming means re-running produces same filenames, not new ones
+    [[ $first_run_count -eq $second_run_count ]]
+    
+    # File list should be identical
+    [[ "$first_run_files" == "$second_run_files" ]]
+  else
+    skip "No silence detected in test video (no clips generated)"
+  fi
+}
