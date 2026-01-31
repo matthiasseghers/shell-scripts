@@ -337,7 +337,7 @@ check_dependencies
 # Auto-generate parent output directory if not specified
 VIDEO_BASE=$(basename "$VIDEO" | sed 's/\.[^.]*$//')
 if [[ -z "$OUTPUT_DIR" ]]; then
-  OUTPUT_DIR="${VIDEO_BASE}_output"
+  OUTPUT_DIR="${VIDEO_BASE}_ocr_output"
 fi
 
 # Update subdirectory paths to be inside the parent output directory

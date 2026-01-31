@@ -98,6 +98,10 @@ SILENCE_THRESHOLD=-25dB SILENCE_DURATION=1.0 ./detect-silence.sh video.mp4
 # Creates: video_silence_output/
 #   ├── silence_video.csv
 #   └── frames/
+#       ├── silence_00-01-23-450_start.jpg
+#       ├── silence_00-01-23-450_end.jpg
+#       ├── silence_00-05-42-100_start.jpg
+#       └── silence_00-05-42-100_end.jpg
 ```
 
 **Extract video clips of silent periods**:
@@ -106,6 +110,9 @@ SILENCE_THRESHOLD=-25dB SILENCE_DURATION=1.0 ./detect-silence.sh video.mp4
 # Creates: video_silence_output/
 #   ├── silence_video.csv
 #   └── videos/
+#       ├── silence_00-01-23-450.mp4
+#       ├── silence_00-05-42-100.mp4
+#       └── ...
 ```
 
 **Both frames and videos**:
@@ -508,33 +515,33 @@ FPS=4 SEARCH_TERMS="crash" ./video-ocr.sh video.mp4
 
 ### Output
 
-The script generates all output in a video-specific directory (default: `<video_name>_output/`):
+The script generates all output in a video-specific directory (default: `<video_name>_ocr_output/`):
 
 1. **Timestamps file** (default or specified with `-o`):
    - Auto-generated filenames include time range or timestamp
    - Format: `video_00-05-00_to_00-10-00.txt` or `video_2026-01-28_14-30-45.txt`
    - Contains deduplicated timestamps in HH:MM:SS format
-   - Located in: `<video_name>_output/`
+   - Located in: `<video_name>_ocr_output/`
 
 2. **Intermediate directories** (kept by default):
-   - `<video_name>_output/frames/` - Extracted frame images (PNG)
-   - `<video_name>_output/ocr/` - OCR text output files (TXT)
+   - `<video_name>_ocr_output/frames/` - Extracted frame images (PNG)
+   - `<video_name>_ocr_output/ocr/` - OCR text output files (TXT)
    - Use `--clean` to remove after completion
 
 3. **Matched frames directory** (when using `--keep-matched-frames`):
-   - `<video_name>_output/matched_frames/` - Only frames where text matches were found
+   - `<video_name>_ocr_output/matched_frames/` - Only frames where text matches were found
    - Perfect for visual verification of OCR results
    - Automatically cleans up non-matching frames
 
 4. **Video clips directory** (when using `--extract-clips`):
-   - `<video_name>_output/clips/` (or custom directory) - Video segments around each match
+   - `<video_name>_ocr_output/clips/` (or custom directory) - Video segments around each match
    - Clips named by timestamp: `clip_HH-MM-SS.mp4`
    - Includes configurable padding before/after the match
    - Fast extraction using codec copy when possible
 
 **Example output structure:**
 ```
-video_output/
+video_ocr_output/
 ├── video_2026-01-30_14-25-00.txt    # Timestamps of matches
 ├── frames/                           # All extracted frames
 │   ├── frame_00001.png
@@ -560,7 +567,7 @@ All options can be set via environment variables:
 - `LANGUAGE` - OCR language
 - `PSM_MODE` - Tesseract PSM mode
 - `DEDUP_THRESHOLD` - Deduplication threshold in seconds
-- `OUTPUT_DIR` - Parent output directory (default: `<video_name>_output`)
+- `OUTPUT_DIR` - Parent output directory (default: `<video_name>_ocr_output`)
 - `FRAMES_DIR` - Frames subdirectory name (default: `frames`, relative to OUTPUT_DIR)
 - `OCR_DIR` - OCR subdirectory name (default: `ocr`, relative to OUTPUT_DIR)
 - `OUTPUT_FILE` - Output filename
@@ -617,7 +624,7 @@ Common Page Segmentation Modes:
 6. **Visual verification of matches**: Use `--keep-matched-frames` to review what the OCR actually detected:
    ```bash
    ./video-ocr.sh video.mp4 -s "pattern" --keep-matched-frames
-   open video_output/matched_frames/  # Review frames with matches
+   open video_ocr_output/matched_frames/  # Review frames with matches
    ```
 
 7. **Save space with matched frames**: When processing large videos, keep only relevant frames:
@@ -629,7 +636,7 @@ Common Page Segmentation Modes:
 8. **Context with clips**: Extract video segments to see motion and hear audio around matches:
    ```bash
    ./video-ocr.sh video.mp4 -s "pattern" --extract-clips
-   # Review video_output/clips/ directory to see context around each match
+   # Review video_ocr_output/clips/ directory to see context around each match
    ```
 
 9. **Adjust clip timing**: Customize padding for different use cases:

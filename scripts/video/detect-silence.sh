@@ -287,18 +287,19 @@ if [[ "$OUTPUT_FRAMES" == "true" ]]; then
       end=$(awk -v dur="$VIDEO_DURATION" 'BEGIN {print dur - 0.01}')
     fi
 
-    # Format index with leading zeros
-    idx=$(printf "%02d" $((i + 1)))
+    # Format timestamp for filename (HH-MM-SS format)
+    start_tc=$(seconds_to_timecode "$start" | tr ':' '-')
+    end_tc=$(seconds_to_timecode "$end" | tr ':' '-')
 
     # Extract start frame
     ffmpeg -y -ss "$start" -i "$VIDEO" -frames:v 1 -q:v 2 \
-      "${FRAMES_DIR}/silence_${idx}_start.jpg" 2>/dev/null
+      "${FRAMES_DIR}/silence_${start_tc}_start.jpg" 2>/dev/null
 
     # Extract end frame (with error handling)
     ffmpeg -y -ss "$end" -i "$VIDEO" -frames:v 1 -q:v 2 \
-      "${FRAMES_DIR}/silence_${idx}_end.jpg" 2>/dev/null || true
+      "${FRAMES_DIR}/silence_${start_tc}_end.jpg" 2>/dev/null || true
 
-    echo "   ✓ Extracted frames for silence #$idx"
+    echo "   ✓ Extracted frames for silence at $start_tc"
   done
 
   echo "   📸 Saved ${#SILENCE_ENDS[@]} frame pairs to: $FRAMES_DIR/"
@@ -313,15 +314,15 @@ if [[ "$OUTPUT_VIDEO" == "true" ]]; then
     start="${SILENCE_STARTS[i]}"
     duration="${SILENCE_DURATIONS[i]}"
 
-    # Format index with leading zeros
-    idx=$(printf "%02d" $((i + 1)))
+    # Format timestamp for filename (HH-MM-SS format)
+    start_tc=$(seconds_to_timecode "$start" | tr ':' '-')
 
     # Extract video clip
     ffmpeg -y -ss "$start" -i "$VIDEO" -t "$duration" \
       -c:v libx264 -preset fast -crf 23 -c:a aac \
-      "${VIDEOS_DIR}/silence_${idx}.mp4" 2>/dev/null
+      "${VIDEOS_DIR}/silence_${start_tc}.mp4" 2>/dev/null
 
-    echo "   ✓ Extracted clip for silence #$idx"
+    echo "   ✓ Extracted clip for silence at $start_tc"
   done
 
   echo "   🎥 Saved ${#SILENCE_ENDS[@]} video clips to: $VIDEOS_DIR/"
