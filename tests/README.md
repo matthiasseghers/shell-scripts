@@ -13,6 +13,8 @@ tests/
 │   ├── automated_backup_restic.bats
 │   ├── emulator_saves_manual.bats
 │   └── emulator_saves_restic.bats
+├── data/
+│   └── pdf_to_csv.bats
 └── video/
     ├── detect-silence.bats
     ├── video-ocr.bats
@@ -24,6 +26,7 @@ This 1:1 mapping makes it easy to find the test file for any script:
 - `scripts/video/video-ocr.sh` → `tests/video/video-ocr.bats`
 - `scripts/backup/emulator_saves_manual.sh` → `tests/backup/emulator_saves_manual.bats`
 - `scripts/video/fcp/extract_markers.sh` → `tests/video/fcp/extract_markers.bats`
+- `scripts/data/pdf_to_csv.sh` → `tests/data/pdf_to_csv.bats`
 
 ## Requirements
 

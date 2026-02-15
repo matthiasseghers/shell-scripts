@@ -21,6 +21,9 @@ scripts/
 │   ├── emulator_saves_manual.sh
 │   ├── emulator_saves_restic.sh
 │   └── README.md
+├── data/            # Data processing scripts
+│   ├── pdf_to_csv.sh
+│   └── README.md
 └── video/           # Video processing scripts
     ├── video-ocr.sh
     ├── fcp/         # Final Cut Pro scripts
@@ -49,6 +52,13 @@ See [scripts/backup/README.md](scripts/backup/README.md) for detailed documentat
 
 See [scripts/video/README.md](scripts/video/README.md) for detailed documentation.
 
+### Data Scripts
+📁 **[scripts/data/](scripts/data/README.md)**
+
+- **pdf_to_csv.sh** - Convert a bank statement PDF to CSV
+
+See [scripts/data/README.md](scripts/data/README.md) for detailed documentation.
+
 #### Final Cut Pro Scripts
 📁 **[scripts/video/fcp/](scripts/video/fcp/README.md)**
 
@@ -76,11 +86,18 @@ cd scripts/video/fcp
 ./extract_markers.sh project.fcpxml csv > markers.csv
 ```
 
+### Convert a PDF statement to CSV
+```bash
+cd scripts/data
+./pdf_to_csv.sh statement.pdf
+```
+
 ## Prerequisites
 
 Different scripts have different requirements. Check the README in each directory for specific prerequisites:
 
 - **Backup scripts**: Typically require `restic`
+- **Data scripts**: Typically require `pdftotext`
 - **Video scripts**: Require `ffmpeg`, `tesseract`, and related tools
 - **FCP scripts**: Use standard Unix tools (typically pre-installed)
 
