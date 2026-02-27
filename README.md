@@ -49,6 +49,7 @@ See [scripts/backup/README.md](scripts/backup/README.md) for detailed documentat
 📁 **[scripts/video/](scripts/video/README.md)**
 
 - **video-ocr.sh** - OCR pipeline for extracting and searching text in videos
+- **sidebar-check.sh** - Calculate sidebar/letterbox layout and test image fit
 
 See [scripts/video/README.md](scripts/video/README.md) for detailed documentation.
 
