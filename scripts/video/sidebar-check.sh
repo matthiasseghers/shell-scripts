@@ -169,7 +169,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --help | -h)
-      sed -n '/^# Usage:/,/^[^#]/{ /^#/{ s/^# \{0,1\}//; p } }' "$0"
+      sed -n '/^# Usage:/,/^[^#]/{ /^#/s/^# \{0,1\}//p; }' "$0"
       exit 0
       ;;
     -*)
@@ -279,7 +279,7 @@ if ((DIFF_W == 0 && DIFF_H == 0)) && ! $CROPDETECT && [ -z "$SCALE_MODE" ]; then
 fi
 
 if ((DIFF_W > 0 || DIFF_H > 0)); then
-  echo "📐  Layout Options  (container: ${VID_W}x${VID_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
+  echo "📐  Layout Options  (based on container: ${VID_W}x${VID_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
   print_layout_table "$VID_W" "$VID_H" "$EDITOR_W" "$EDITOR_H"
 fi
 
@@ -292,13 +292,13 @@ CROP_W="" CROP_H="" CROP_X="" CROP_Y=""
 if $CROPDETECT; then
   echo "🔍  Detecting content crop..."
   CROP_RAW=$(ffmpeg -i "$VIDEO" \
-    -vf "cropdetect=limit=24:round=2:skip=2" \
+    -vf "cropdetect=limit=24:round=2:skip=0" \
     -frames:v 100 -f null - 2>&1 |
     grep -o 'crop=[0-9]*:[0-9]*:[0-9]*:[0-9]*' |
     sort | uniq -c | sort -rn | head -1 | awk '{print $2}')
 
   if [ -z "$CROP_RAW" ]; then
-    echo "  ⚠️   Could not detect a crop — video may have no baked-in bars."
+    echo "  ✅  No baked-in bars detected — content fills the full container."
     echo ""
   else
     CROP_W=$(echo "$CROP_RAW" | cut -d= -f2 | cut -d: -f1)
@@ -320,7 +320,7 @@ if $CROPDETECT; then
       table_row "Editor canvas" "${EDITOR_W}x${EDITOR_H}"
       table_print
 
-      echo "📐  Layout Options  (crop: ${CROP_W}x${CROP_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
+      echo "📐  Layout Options  (based on crop: ${CROP_W}x${CROP_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
       print_layout_table "$CROP_W" "$CROP_H" "$EDITOR_W" "$EDITOR_H"
     fi
   fi
@@ -360,7 +360,7 @@ if [ -n "$SCALE_MODE" ]; then
   table_row "Remaining space" "$((EDITOR_W - SCALED_W))px wide, $((EDITOR_H - SCALED_H))px tall"
   table_print
 
-  echo "📐  Layout Options  (scaled: ${SCALED_W}x${SCALED_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
+  echo "📐  Layout Options  (based on scaled: ${SCALED_W}x${SCALED_H} on ${EDITOR_W}x${EDITOR_H} canvas)"
   print_layout_table "$SCALED_W" "$SCALED_H" "$EDITOR_W" "$EDITOR_H"
 fi
 
