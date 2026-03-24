@@ -8,10 +8,10 @@ setup() {
   export TEST_VIDEO="/tmp/bats_test_video.mp4"
   if [[ ! -f "$TEST_VIDEO" ]]; then
     ffmpeg -f lavfi -i testsrc=duration=1:size=320x240:rate=1 \
-           -f lavfi -i sine=frequency=1000:duration=1 \
-           -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+      -f lavfi -i sine=frequency=1000:duration=1 \
+      -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
   fi
-  
+
   export SCRIPT="./scripts/video/video-ocr.sh"
   export TEST_OUTPUT_DIR="/tmp/bats_test_output"
   mkdir -p "$TEST_OUTPUT_DIR"

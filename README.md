@@ -12,14 +12,16 @@ A collection of shell scripts for various automation tasks, organized by categor
 
 This repository provides shell scripts for common automation needs including backups, video processing, and video editing workflows. Each script is designed to be standalone and well-documented.
 
+> **Platform**: macOS. Scripts target macOS and assume Homebrew is available.
+
 ## Directory Structure
 
 ```
 scripts/
 ├── backup/          # Backup automation scripts
-│   ├── automated_backup_restic.sh
 │   ├── emulator_saves_manual.sh
 │   ├── emulator_saves_restic.sh
+│   ├── deps.brew
 │   └── README.md
 ├── data/            # Data processing scripts
 │   ├── pdf_to_csv.sh
@@ -28,19 +30,33 @@ scripts/
     ├── video-ocr.sh
     ├── fcp/         # Final Cut Pro scripts
     │   ├── extract_markers.sh
+    │   ├── deps.brew
     │   └── README.md
     └── README.md
 ```
 
 ## Quick Start
 
-Each directory contains its own detailed README with usage instructions:
+### Install dependencies
+
+Each script category declares its dependencies in a `deps.brew` file. To install everything at once:
+
+```bash
+./install-deps.sh
+```
+
+To check what's missing without installing:
+
+```bash
+./install-deps.sh --check
+```
+
+Each directory contains its own detailed README with usage instructions.
 
 ### Backup Scripts
 📁 **[scripts/backup/](scripts/backup/README.md)**
 
-- **automated_backup_restic.sh** - Generic Restic backup automation template
-- **emulator_saves_manual.sh** - Manual emulator save backup/restore with ZIP archives  
+- **emulator_saves_manual.sh** - Manual emulator save backup/restore with ZIP archives
 - **emulator_saves_restic.sh** - Automated emulator save backup with Restic
 
 See [scripts/backup/README.md](scripts/backup/README.md) for detailed documentation.
@@ -60,10 +76,10 @@ See [scripts/video/README.md](scripts/video/README.md) for detailed documentatio
 
 See [scripts/data/README.md](scripts/data/README.md) for detailed documentation.
 
-#### Final Cut Pro Scripts
+### Final Cut Pro Scripts
 📁 **[scripts/video/fcp/](scripts/video/fcp/README.md)**
 
-- **extract_markers.sh** - Extract markers from FCPXML files in CSV/JSON/text formats
+- **extract_markers.sh** - Extract markers from an FCPXML/FCPXMLD and output YouTube chapter timestamps
 
 See [scripts/video/fcp/README.md](scripts/video/fcp/README.md) for detailed documentation.
 
@@ -71,42 +87,47 @@ See [scripts/video/fcp/README.md](scripts/video/fcp/README.md) for detailed docu
 
 ### Backup an emulator's saves
 ```bash
-cd scripts/backup
-./emulator_saves_manual.sh pcsx2 --archive
+./scripts/backup/emulator_saves_manual.sh pcsx2 --archive
+```
+
+### Restore the latest backup
+```bash
+./scripts/backup/emulator_saves_manual.sh pcsx2 --restore-latest
 ```
 
 ### Search for text in a video
 ```bash
-cd scripts/video
-./video-ocr.sh video.mp4 -s "error|warning"
+./scripts/video/video-ocr.sh video.mp4 -s "error|warning"
 ```
 
-### Extract markers from Final Cut Pro project
+### Extract YouTube chapter timestamps from a Final Cut Pro project
 ```bash
-cd scripts/video/fcp
-./extract_markers.sh project.fcpxml csv > markers.csv
+./scripts/video/fcp/extract_markers.sh ~/Desktop/MyVideo.fcpxmld
 ```
 
 ### Convert a PDF statement to CSV
 ```bash
-cd scripts/data
-./pdf_to_csv.sh statement.pdf
+./scripts/data/pdf_to_csv.sh statement.pdf
 ```
 
-## Prerequisites
+## Dependencies
 
-Different scripts have different requirements. Check the README in each directory for specific prerequisites:
+Dependencies are declared in `deps.brew` files colocated with each script category.
+Run `./install-deps.sh` to install everything, or `./install-deps.sh --check` to see what's missing.
 
-- **Backup scripts**: Typically require `restic`
-- **Data scripts**: Typically require `pdftotext`
-- **Video scripts**: Require `ffmpeg`, `tesseract`, and related tools
-- **FCP scripts**: Use standard Unix tools (typically pre-installed)
+| Category | Dependencies |
+|----------|-------------|
+| Backup | `restic` |
+| Video | `ffmpeg`, `tesseract`, `imagemagick` |
+| FCP | `markers-extractor` (via `TheAcharya/homebrew-tap`) |
+| Data | `pdftotext` |
 
-## Security - Preventing Secret Leaks
+## Security — Preventing Secret Leaks
 
-This repository uses multiple layers to prevent committing sensitive data:
+This repository uses multiple layers to prevent committing sensitive data.
 
 ### 1. Pre-commit Hook (Local)
+
 A git pre-commit hook scans for secrets before they reach your local repository.
 
 **Setup** (one-time after cloning):
@@ -124,6 +145,7 @@ The pre-commit hook will automatically:
 - **Check formatting**: Ensures consistent shell script formatting
 
 ### 2. GitHub Actions (CI/CD)
+
 Multiple checks run automatically on every push and pull request:
 - **TruffleHog**: Secret scanning safety net
 - **Shellcheck**: Shell script linting and best practices
@@ -131,12 +153,11 @@ Multiple checks run automatically on every push and pull request:
 - **Markdown Link Check**: Validates documentation links
 
 ### Bypass Pre-commit Check (Not Recommended)
-If you need to bypass the pre-commit hook (e.g., for false positives):
 ```bash
 git commit --no-verify
-```Operations
+```
 
-**Scan for secrets**:
+**Scan for secrets manually**:
 ```bash
 # Using gitleaks
 gitleaks detect --verbose
@@ -156,15 +177,8 @@ shfmt -w -i 2 -ci scripts/
 
 **Check markdown links**:
 ```bash
-# Install markdown-link-check globally
 npm install -g markdown-link-check
-
-# Check all markdown files
 find . -name "*.md" -exec markdown-link-check {} \;
-gitleaks detect --verbose
-
-# Using git-secrets
-git secrets --scan
 ```
 
 ## Testing
@@ -174,7 +188,7 @@ This repository includes automated tests using [BATS (Bash Automated Testing Sys
 ### Running Tests Locally
 
 ```bash
-# Install BATS (macOS)
+# Install BATS
 brew install bats-core
 
 # Run unit tests only (fast, < 10 seconds)
@@ -186,24 +200,21 @@ brew install bats-core
 # Run all tests (unit + integration)
 ./run-all-tests.sh
 
-# Run specific test file
+# Run a specific test file
 bats tests/video/video-ocr.bats
-
-# Run with verbose output
-bats tests/ --verbose
 ```
 
 ### Test Types
 
-- **Unit Tests** (`.bats`): Fast validation tests that run on every commit
-- **Integration Tests** (`.integration.bats`): Slow end-to-end tests with actual file processing
+- **Unit Tests** (`.bats`): Fast structural validation, run on every commit
+- **Integration Tests** (`.integration.bats`): End-to-end tests with actual file processing, require `RUN_INTEGRATION_TESTS=1`
 
 ### CI/CD Testing
 
 Tests run automatically on GitHub Actions:
 - **Unit tests**: Run on every push and PR (< 1 minute)
 - **Integration tests**: Manual trigger or nightly schedule (up to 30 minutes)
-- **Platforms**: Ubuntu and macOS
+- **Platform**: macOS
 
 See [tests/README.md](tests/README.md) for more details on writing and running tests.
 
@@ -213,8 +224,9 @@ Contributions are welcome! Please ensure scripts:
 - Are well-documented with usage examples
 - Include error handling
 - Pass shellcheck validation
-- **Pass all tests** (`./run-tests.sh`)
+- Pass all tests (`./run-tests.sh`)
 - Follow existing code style
+- Declare dependencies in a `deps.brew` file in the script's directory
 
 ## License
 

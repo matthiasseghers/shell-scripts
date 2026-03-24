@@ -9,6 +9,21 @@ This directory contains scripts for video processing and editing tasks.
 - **sidebar-check.sh** - Calculate sidebar/letterbox space for overlaying images on a video timeline
 - **fcp/** - Final Cut Pro specific scripts (see [fcp/README.md](fcp/README.md))
 
+## Prerequisites
+
+Install all dependencies at once from the repository root:
+
+```bash
+./install-deps.sh
+```
+
+Or install manually:
+
+```bash
+brew install ffmpeg imagemagick parallel tesseract
+brew install bash  # sidebar-check.sh requires bash 4+ (macOS ships with 3.x)
+```
+
 ---
 
 ## sidebar-check.sh
@@ -28,10 +43,9 @@ Supports baked-in bar detection via `cropdetect` and accounts for editor scaling
 
 ### Prerequisites
 
-```bash
-brew install ffmpeg        # provides ffprobe + ffmpeg (required)
-brew install imagemagick   # required only for image checking
-```
+- bash 4+ — macOS ships with 3.x: `brew install bash`
+- `ffmpeg` — provides ffprobe + ffmpeg
+- `imagemagick` — required only for image checking
 
 ### Usage
 
@@ -109,7 +123,7 @@ Always shown. Summarises the file, detected container size, editor canvas, and a
 Always shown when the video is smaller than the canvas. Shows available space based on raw container dimensions.
 
 ```
-📐  Layout Options  (container: 3456x1944 on 3840x2160 canvas)
+📐  Layout Options  (based on container: 3456x1944 on 3840x2160 canvas)
 +------------------+-----------------+-----------+
 | Layout           | Dimensions      | Area      |
 +------------------+-----------------+-----------+
@@ -133,7 +147,7 @@ Shown when `--cropdetect` finds baked-in bars. Reports the real content dimensio
 | Editor canvas  | 3840x2160                      |
 +----------------+--------------------------------+
 
-📐  Layout Options  (crop: 2592x1944 on 3840x2160 canvas)
+📐  Layout Options  (based on crop: 2592x1944 on 3840x2160 canvas)
 +------------------+-----------------+------------+
 | Layout           | Dimensions      | Area       |
 +------------------+-----------------+------------+
@@ -157,7 +171,7 @@ Shown when `--scale fit` is set. Calculates what the editor actually renders on 
 | Remaining space  | 960px wide, 0px tall                         |
 +------------------+----------------------------------------------+
 
-📐  Layout Options  (scaled: 2880x2160 on 3840x2160 canvas)
+📐  Layout Options  (based on scaled: 2880x2160 on 3840x2160 canvas)
 +------------------+-----------------+-----------+
 | Layout           | Dimensions      | Area      |
 +------------------+-----------------+-----------+
@@ -229,10 +243,7 @@ Detect silent parts in video files and generate formatted reports. Perfect for i
 
 ### Prerequisites
 
-```bash
-# macOS installation
-brew install ffmpeg
-```
+- `ffmpeg`
 
 ### Usage
 
@@ -417,27 +428,27 @@ Total silence duration: 00:00:28.150
 
 ## video-ocr.sh
 
-A powerful OCR (Optical Character Recognition) pipeline for searching text patterns in videos. The script extracts frames from a video, performs OCR on each frame, searches for specified text patterns, and outputs timestamps where the text appears.
+A powerful OCR (Optical Character Recognition) pipeline for searching text patterns in videos. The script extracts frames from a video, performs OCR on each frame using GNU parallel, searches for specified text patterns, and outputs timestamps where the text appears.
 
 ### Features
 
 - **Frame Extraction**: Extract frames from video at configurable frame rates
 - **OCR Processing**: Uses Tesseract OCR with customizable language and PSM modes
+- **Parallel Processing**: Uses GNU parallel for multi-core OCR — significantly faster on large videos
 - **Pattern Matching**: Search for multiple text patterns using regex (pipe-separated)
 - **Time Range Support**: Process only specific segments of a video
 - **Deduplication**: Automatically removes duplicate hits within a configurable threshold
 - **Matched Frames Only**: Option to keep only frames where text matches were found
 - **Clip Extraction**: Extract video clips around each OCR match with configurable padding
 - **Resume Mode**: Skip frame extraction and use existing frames for faster re-runs
-- **Parallel Processing**: Automatically uses GNU parallel if available for faster OCR
 - **Clean Output**: Auto-generates timestamped output filenames to prevent overwrites
 - **Progress Tracking**: Shows progress for frame extraction and OCR processing
 
 ### Prerequisites
 
-```bash
-brew install ffmpeg tesseract
-```
+- `ffmpeg`
+- `tesseract`
+- `parallel` (required — install via `brew install parallel`)
 
 ### Usage
 

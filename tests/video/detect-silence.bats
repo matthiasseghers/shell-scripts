@@ -8,10 +8,10 @@ setup() {
   export TEST_VIDEO="/tmp/bats_test_silence_video.mp4"
   if [[ ! -f "$TEST_VIDEO" ]]; then
     ffmpeg -f lavfi -i testsrc=duration=1:size=320x240:rate=1 \
-           -f lavfi -i sine=frequency=1000:duration=1 \
-           -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+      -f lavfi -i sine=frequency=1000:duration=1 \
+      -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
   fi
-  
+
   export SCRIPT="./scripts/video/detect-silence.sh"
   export TEST_OUTPUT_DIR="/tmp/bats_silence_test_output"
   mkdir -p "$TEST_OUTPUT_DIR"
@@ -104,7 +104,7 @@ teardown() {
 
 @test "warns when using --from-csv with non-csv format" {
   # Create a dummy CSV file
-  echo "start,end,duration" > "$TEST_OUTPUT_DIR/test.csv"
+  echo "start,end,duration" >"$TEST_OUTPUT_DIR/test.csv"
   run "$SCRIPT" --from-csv "$TEST_OUTPUT_DIR/test.csv" -f json "$TEST_VIDEO"
   [[ "$output" =~ "only works with CSV format" ]]
 }

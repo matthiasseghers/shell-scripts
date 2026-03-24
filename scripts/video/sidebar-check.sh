@@ -2,6 +2,12 @@
 # Requires bash 4+ (macOS default is 3.x — install via: brew install bash)
 # Requires ffprobe (brew install ffmpeg) and ImageMagick (brew install imagemagick)
 
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "❌ bash 4+ required (current: $BASH_VERSION)"
+  echo "   Install with: brew install bash"
+  exit 1
+fi
+
 # Usage:
 #   ./sidebar-check.sh [options] video.mp4 [image.png]
 #

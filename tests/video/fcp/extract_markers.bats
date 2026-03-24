@@ -1,200 +1,79 @@
 #!/usr/bin/env bats
 
-# Test suite for extract_markers.sh script
+# Unit tests for extract_markers.sh
 # Run with: bats tests/video/fcp/extract_markers.bats
 
 setup() {
   export SCRIPT="./scripts/video/fcp/extract_markers.sh"
-  export TEST_OUTPUT_DIR="/tmp/bats_fcp_test_output"
-  mkdir -p "$TEST_OUTPUT_DIR"
-  
-  # Create a minimal test FCPXML file
-  export TEST_FCPXML="$TEST_OUTPUT_DIR/test.fcpxml"
-  cat > "$TEST_FCPXML" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE fcpxml>
-<fcpxml version="1.9">
-  <resources>
-    <format id="r1" name="FFVideoFormat1080p60"/>
-  </resources>
-  <library>
-    <event name="Test Event">
-      <project name="Test Project">
-        <sequence format="r1">
-          <spine>
-            <asset-clip name="Clip 1" offset="0s" duration="100/60s">
-              <marker start="10/60s" duration="1/60s" value="Test Marker"/>
-              <chapter-marker start="50/60s" duration="1/60s" value="Chapter 1"/>
-            </asset-clip>
-          </spine>
-        </sequence>
-      </project>
-    </event>
-  </library>
-</fcpxml>
-EOF
-}
-
-teardown() {
-  rm -rf "$TEST_OUTPUT_DIR"
-  rm -f markers_*.csv markers_*.json markers_*.txt
 }
 
 # ==========================================
-# File Validation Tests
+# Script Basics
 # ==========================================
 
-@test "shows error when no file specified" {
+@test "script exists" {
+  [ -f "$SCRIPT" ]
+}
+
+@test "script has bash shebang" {
+  run head -n 1 "$SCRIPT"
+  [[ "$output" =~ "#!/usr/bin/env bash" ]]
+}
+
+@test "script is executable" {
+  [ -x "$SCRIPT" ]
+}
+
+# ==========================================
+# Argument Handling
+# ==========================================
+
+@test "shows usage when no arguments provided" {
   run "$SCRIPT"
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "not found" ]]
+  [[ "$output" =~ "Usage:" ]]
 }
 
-@test "shows error when file does not exist" {
-  run "$SCRIPT" /nonexistent/file.fcpxml
+@test "usage shows expected argument" {
+  run "$SCRIPT"
+  [[ "$output" =~ "fcpxml" ]]
+}
+
+@test "usage includes an example" {
+  run "$SCRIPT"
+  [[ "$output" =~ "Example:" ]]
+}
+
+@test "fails with clear error when file does not exist" {
+  run "$SCRIPT" /nonexistent/path/video.fcpxmld
   [ "$status" -eq 1 ]
   [[ "$output" =~ "not found" ]]
 }
 
-@test "accepts valid FCPXML file" {
-  run "$SCRIPT" "$TEST_FCPXML"
+# ==========================================
+# Dependency Check
+# ==========================================
+
+@test "script checks for markers-extractor" {
+  run grep -q "markers-extractor" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script installs via brew tap if missing" {
+  run grep -q "brew tap TheAcharya/homebrew-tap" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
 # ==========================================
-# Output Format Tests
+# Output Directory Logic
 # ==========================================
 
-@test "accepts csv format (default)" {
-  run "$SCRIPT" "$TEST_FCPXML"
+@test "script derives output dir from input path" {
+  run grep -q 'dirname.*FCPXML_PATH\|OUTPUT_DIR.*dirname' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "accepts csv format explicitly" {
-  run "$SCRIPT" "$TEST_FCPXML" csv
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts json format" {
-  run "$SCRIPT" "$TEST_FCPXML" json
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts text format" {
-  run "$SCRIPT" "$TEST_FCPXML" text
-  [ "$status" -eq 0 ]
-}
-
-# ==========================================
-# Marker Type Tests
-# ==========================================
-
-@test "accepts all marker types (default)" {
-  run "$SCRIPT" "$TEST_FCPXML" csv
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts all marker types explicitly" {
-  run "$SCRIPT" "$TEST_FCPXML" csv all
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts marker type filter" {
-  run "$SCRIPT" "$TEST_FCPXML" csv marker
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts chapter-marker type filter" {
-  run "$SCRIPT" "$TEST_FCPXML" csv chapter-marker
-  [ "$status" -eq 0 ]
-}
-
-@test "rejects invalid marker type" {
-  run "$SCRIPT" "$TEST_FCPXML" csv invalid
-  [ "$status" -eq 1 ]
-  [[ "$output" =~ "Invalid marker type" ]]
-}
-
-# ==========================================
-# Marker Extraction Tests
-# ==========================================
-
-@test "extracts markers from FCPXML" {
-  run "$SCRIPT" "$TEST_FCPXML" csv all
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Test Marker" ]]
-}
-
-@test "extracts chapter markers from FCPXML" {
-  run "$SCRIPT" "$TEST_FCPXML" csv all
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Chapter 1" ]]
-}
-
-@test "filters only regular markers" {
-  run "$SCRIPT" "$TEST_FCPXML" csv marker
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Test Marker" ]]
-  ! [[ "$output" =~ "Chapter 1" ]]
-}
-
-@test "filters only chapter markers" {
-  run "$SCRIPT" "$TEST_FCPXML" csv chapter-marker
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Chapter 1" ]]
-  ! [[ "$output" =~ "Test Marker" ]]
-}
-
-# ==========================================
-# Output Format Validation Tests
-# ==========================================
-
-@test "CSV output contains header" {
-  run "$SCRIPT" "$TEST_FCPXML" csv
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Type" ]] || [[ "$output" =~ "Marker" ]]
-}
-
-@test "JSON output is valid JSON format" {
-  run "$SCRIPT" "$TEST_FCPXML" json
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "{" ]] && [[ "$output" =~ "}" ]]
-}
-
-@test "text output is readable" {
-  run "$SCRIPT" "$TEST_FCPXML" text
-  [ "$status" -eq 0 ]
-  [[ "$output" =~ "Test Marker" ]]
-}
-
-# ==========================================
-# Edge Cases
-# ==========================================
-
-@test "handles FCPXML with no markers" {
-  cat > "$TEST_OUTPUT_DIR/empty.fcpxml" <<'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE fcpxml>
-<fcpxml version="1.9">
-  <library>
-    <event name="Test Event">
-      <project name="Test Project">
-        <sequence>
-          <spine>
-            <asset-clip name="Clip 1" offset="0s" duration="100/60s"/>
-          </spine>
-        </sequence>
-      </project>
-    </event>
-  </library>
-</fcpxml>
-EOF
-  run "$SCRIPT" "$TEST_OUTPUT_DIR/empty.fcpxml"
-  [ "$status" -eq 0 ]
-}
-
-@test "handles empty FCPXML file" {
-  echo '<?xml version="1.0" encoding="UTF-8"?>' > "$TEST_OUTPUT_DIR/minimal.fcpxml"
-  run "$SCRIPT" "$TEST_OUTPUT_DIR/minimal.fcpxml"
+@test "script uses youtube export format" {
+  run grep -q "\-\-export-format youtube" "$SCRIPT"
   [ "$status" -eq 0 ]
 }

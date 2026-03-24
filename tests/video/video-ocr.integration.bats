@@ -9,16 +9,16 @@ setup() {
   if [[ "${RUN_INTEGRATION_TESTS:-0}" != "1" ]]; then
     skip "Integration tests disabled. Set RUN_INTEGRATION_TESTS=1 to enable"
   fi
-  
+
   export SCRIPT="./scripts/video/video-ocr.sh"
   export TEST_OUTPUT_DIR="/tmp/bats_integration_ocr"
   mkdir -p "$TEST_OUTPUT_DIR"
-  
+
   # Create a short test video (2 seconds at 1 fps = 2 frames)
   # Note: OCR may not find any text in the test pattern, which is expected
   export TEST_VIDEO="$TEST_OUTPUT_DIR/test_video.mp4"
   ffmpeg -f lavfi -i testsrc=duration=2:size=640x480:rate=1 \
-         -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+    -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
 }
 
 teardown() {
@@ -40,7 +40,7 @@ teardown() {
 @test "extracts frames at specified FPS" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --fps 1 '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Should create output directory with frames subdirectory
   [[ -d test_video_ocr_output/frames ]]
 }
@@ -48,7 +48,7 @@ teardown() {
 @test "performs OCR on extracted frames" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Should create output directory with ocr subdirectory
   [[ -d test_video_ocr_output/ocr ]]
 }
@@ -67,7 +67,7 @@ teardown() {
 @test "extracts correct number of frames" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --fps 1 '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # 2 second video at 1 fps should produce ~2 frames
   local frame_count=$(ls test_video_ocr_output/frames/*.png 2>/dev/null | wc -l | tr -d ' ')
   [ "$frame_count" -ge 1 ]
@@ -76,7 +76,7 @@ teardown() {
 @test "cleans intermediate files when requested" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --clean '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Frames and OCR subdirectories should be cleaned up
   [[ ! -d test_video_ocr_output/frames ]] && [[ ! -d test_video_ocr_output/ocr ]]
 }
@@ -84,7 +84,7 @@ teardown() {
 @test "keeps intermediate files by default" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Frames and OCR should still exist in output directory
   [[ -d test_video_ocr_output/frames ]] || [[ -d test_video_ocr_output/ocr ]]
 }
@@ -97,7 +97,7 @@ teardown() {
   # Enable clip extraction programmatically
   run bash -c "echo 'y' | $SCRIPT -s 'TEST' --clip-before 1 --clip-after 1 '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # May or may not create clips directory depending on if matches found
 }
 
@@ -113,7 +113,7 @@ teardown() {
 @test "saves matched frames when requested" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --keep-matched-frames '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Matched frames directory may or may not exist depending on matches
 }
 
@@ -138,11 +138,11 @@ teardown() {
 @test "resumes from existing frames" {
   # First run to create frames
   bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'" >/dev/null 2>&1
-  
+
   # Second run in resume mode
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' --resume '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Should use existing frames in output directory
   [[ -d test_video_ocr_output/frames ]]
 }
@@ -191,7 +191,7 @@ teardown() {
 @test "output directory uses _ocr_output suffix" {
   run bash -c "echo 'n' | $SCRIPT -s 'TEST' '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   # Should create directory with _ocr_output suffix, not just _output
   [[ -d test_video_ocr_output ]]
   [[ ! -d test_video_output ]]
@@ -201,11 +201,11 @@ teardown() {
   # This test verifies clip naming follows HH-MM-SS format
   run bash -c "echo 'y' | $SCRIPT -s 'TEST' --clip-before 1 --clip-after 1 '$TEST_VIDEO'"
   [ "$status" -eq 0 ]
-  
+
   if [[ -d test_video_ocr_output/clips ]]; then
     # Check for timestamp pattern in clip names (clip_HH-MM-SS.mp4)
     local timestamp_clips=$(ls test_video_ocr_output/clips/clip_*-*-*.mp4 2>/dev/null | wc -l | tr -d ' ')
-    
+
     # If clips were created, they should use timestamp format
     if [[ -n "$(ls test_video_ocr_output/clips/*.mp4 2>/dev/null)" ]]; then
       [[ $timestamp_clips -gt 0 ]]

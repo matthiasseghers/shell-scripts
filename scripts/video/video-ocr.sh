@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # =========================================
 # Video OCR Pipeline
@@ -32,6 +32,7 @@ check_dependencies() {
   command -v ffmpeg >/dev/null 2>&1 || missing+=("ffmpeg")
   command -v ffprobe >/dev/null 2>&1 || missing+=("ffprobe")
   command -v tesseract >/dev/null 2>&1 || missing+=("tesseract")
+  command -v parallel >/dev/null 2>&1 || missing+=("parallel")
   command -v grep >/dev/null 2>&1 || missing+=("grep")
   command -v awk >/dev/null 2>&1 || missing+=("awk")
   command -v sed >/dev/null 2>&1 || missing+=("sed")
@@ -47,6 +48,8 @@ check_dependencies() {
       echo "  • ffmpeg & ffprobe: brew install ffmpeg"
     [[ " ${missing[*]} " =~ " tesseract " ]] &&
       echo "  • tesseract: brew install tesseract"
+    [[ " ${missing[*]} " =~ " parallel " ]] &&
+      echo "  • parallel: brew install parallel"
     exit 1
   fi
 }
@@ -480,23 +483,9 @@ fi
 # -----------------------------
 echo "➡ Running OCR on frames..."
 
-# Check if GNU parallel is available for faster processing
-if command -v parallel >/dev/null 2>&1; then
-  echo "   Using GNU parallel for faster processing..."
-  find "$FRAMES_DIR" -name "*.png" -type f |
-    parallel -j+0 --bar "tesseract {} $OCR_DIR/{/.} -l $LANGUAGE --psm $PSM_MODE 2>&1 | grep -v 'Tesseract Open Source' | grep -v '^$' || true"
-  PROCESSED=$FRAME_COUNT
-else
-  # Fallback to serial processing
-  PROCESSED=0
-  for f in "$FRAMES_DIR"/*.png; do
-    tesseract "$f" "$OCR_DIR/$(basename "$f" .png)" -l "$LANGUAGE" --psm "$PSM_MODE" 2>&1 | grep -v "Tesseract Open Source" | grep -v "^$" || true
-    ((PROCESSED++))
-    if ((PROCESSED % 20 == 0)); then
-      echo "   Processed $PROCESSED/$FRAME_COUNT frames..."
-    fi
-  done
-fi
+find "$FRAMES_DIR" -name "*.png" -type f |
+  parallel -j+0 --bar "tesseract {} $OCR_DIR/{/.} -l $LANGUAGE --psm $PSM_MODE 2>&1 | grep -v 'Tesseract Open Source' | grep -v '^$' || true"
+PROCESSED=$FRAME_COUNT
 echo "   Completed $PROCESSED frames"
 
 # -----------------------------

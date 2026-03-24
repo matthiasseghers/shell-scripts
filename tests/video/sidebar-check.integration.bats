@@ -108,7 +108,7 @@ teardown() {
   dividers=$(echo "$output" | grep "^+--")
   while IFS= read -r line; do
     [[ "$line" == +* ]] && [[ "$line" == *+ ]]
-  done <<< "$dividers"
+  done <<<"$dividers"
 }
 
 @test "all table rows are properly pipe-delimited" {
@@ -118,7 +118,7 @@ teardown() {
   rows=$(echo "$output" | grep "^| ")
   while IFS= read -r line; do
     [[ "$line" == \|* ]] && [[ "$line" == *\| ]]
-  done <<< "$rows"
+  done <<<"$rows"
 }
 
 # ==========================================
@@ -151,14 +151,14 @@ teardown() {
   run "$SCRIPT" --editor 1920x1080 "$VIDEO_720"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "1920x1080" ]]
-  [[ "$output" =~ "640x1080px" ]]  # 1920-1280=640 sidebar
+  [[ "$output" =~ "640x1080px" ]] # 1920-1280=640 sidebar
 }
 
 @test "uses 1440p canvas when specified with --editor" {
   run "$SCRIPT" --editor 2560x1440 "$VIDEO_720"
   [ "$status" -eq 0 ]
   [[ "$output" =~ "2560x1440" ]]
-  [[ "$output" =~ "1280x1440px" ]]  # 2560-1280=1280 sidebar
+  [[ "$output" =~ "1280x1440px" ]] # 2560-1280=1280 sidebar
 }
 
 # ==========================================
