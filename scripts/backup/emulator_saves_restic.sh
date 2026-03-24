@@ -1,20 +1,24 @@
 #!/bin/bash
 
-# Define variables
+# ─────────────────────────────────────────────
+# Emulator Save Backup — Restic
+# ─────────────────────────────────────────────
+
 RESTIC_PASSWD="$HOME/restic_password"
+BACKUP_REPO="$HOME/restic_emulator_saves"
+
 BACKUP_SOURCES=(
-  "$HOME/Library/Application Support/PCSX2/memcards/"
-  "$HOME/Library/Application Support/DuckStation/"
-  "/Volumes/192.168.1.38/3ds/Checkpoint"
+  "$HOME/Library/Application Support/PCSX2/memcards"
+  "$HOME/Library/Application Support/DuckStation/memcards"
+  "$HOME/Library/Application Support/Dolphin/GC"
+  "$HOME/Library/Application Support/PPSSPP/memstick/PSP/SAVEDATA"
 )
-BACKUP_REPO="$HOME/restic_save_games"
-KEEP_OPTIONS="--keep-hourly 2 --keep-daily 6 --keep-weekly 3 --keep-monthly 1"
 
-# Perform Restic unlock and capture output
-restic -p $RESTIC_PASSWD -r $BACKUP_REPO unlock
+KEEP_OPTIONS="--keep-daily 7 --keep-weekly 4 --keep-monthly 2"
 
-# Perform Restic backup
-restic -p $RESTIC_PASSWD -r $BACKUP_REPO backup "${BACKUP_SOURCES[@]}"
+# ─────────────────────────────────────────────
 
-# Perform Restic forget
-restic -p $RESTIC_PASSWD -r $BACKUP_REPO forget $KEEP_OPTIONS --prune --cleanup-cache
+restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO" unlock
+restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO" backup "${BACKUP_SOURCES[@]}"
+restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO" forget $KEEP_OPTIONS --prune
+restic -p "$RESTIC_PASSWD" -r "$BACKUP_REPO" cache --cleanup

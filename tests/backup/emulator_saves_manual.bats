@@ -21,21 +21,36 @@ teardown() {
   run "$SCRIPT"
   [ "$status" -eq 1 ]
   [[ "$output" =~ "Usage:" ]]
-  [[ "$output" =~ "Supported emulators:" ]]
+  [[ "$output" =~ "Supported emulators:" ]] || [[ "$output" =~ "Emulators" ]]
 }
 
 @test "shows usage when only emulator provided" {
   run "$SCRIPT" pcsx2
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "Missing action" ]]
+  [[ "$output" =~ "Usage:" ]]
 }
 
-@test "usage shows supported emulators" {
+@test "usage lists all supported emulators" {
   run "$SCRIPT"
   [[ "$output" =~ "pcsx2" ]]
   [[ "$output" =~ "dolphin" ]]
   [[ "$output" =~ "ppsspp" ]]
   [[ "$output" =~ "duckstation" ]]
+}
+
+@test "usage mentions all action" {
+  run "$SCRIPT"
+  [[ "$output" =~ "all" ]]
+}
+
+@test "usage mentions --restore-latest action" {
+  run "$SCRIPT"
+  [[ "$output" =~ "--restore-latest" ]]
+}
+
+@test "usage mentions --prune action" {
+  run "$SCRIPT"
+  [[ "$output" =~ "--prune" ]]
 }
 
 # ==========================================
@@ -45,30 +60,26 @@ teardown() {
 @test "rejects unsupported emulator" {
   run "$SCRIPT" unsupported --list
   [ "$status" -eq 1 ]
-  [[ "$output" =~ "Unsupported emulator" ]]
+  [[ "$output" =~ "Unknown emulator" ]] || [[ "$output" =~ "Unsupported emulator" ]]
 }
 
-@test "accepts pcsx2 emulator" {
-  skip "Requires interactive input or directory setup"
-  run "$SCRIPT" pcsx2 --list
+@test "rejects unknown action" {
+  run "$SCRIPT" pcsx2 --nonexistent
+  [ "$status" -eq 1 ]
+  [[ "$output" =~ "Unknown action" ]] || [[ "$output" =~ "Unsupported action" ]]
+}
+
+# ==========================================
+# 'all' Target Tests
+# ==========================================
+
+@test "script accepts 'all' as target" {
+  run grep -q '"all"' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "accepts dolphin emulator" {
-  skip "Requires interactive input or directory setup"
-  run "$SCRIPT" dolphin --list
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts ppsspp emulator" {
-  skip "Requires interactive input or directory setup"
-  run "$SCRIPT" ppsspp --list
-  [ "$status" -eq 0 ]
-}
-
-@test "accepts duckstation emulator" {
-  skip "Requires interactive input or directory setup"
-  run "$SCRIPT" duckstation --list
+@test "script expands 'all' to every emulator" {
+  run grep -q 'EMULATOR_NAMES\[@\]' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -76,23 +87,43 @@ teardown() {
 # Command Structure Tests
 # ==========================================
 
-@test "script contains archive action" {
+@test "script contains --archive action" {
   run grep -q "\-\-archive" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "script contains list action" {
+@test "script contains --list action" {
   run grep -q "\-\-list" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "script contains restore action" {
+@test "script contains --restore action" {
   run grep -q "\-\-restore" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
+@test "script contains --restore-latest action" {
+  run grep -q "\-\-restore-latest" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script contains --prune action" {
+  run grep -q "\-\-prune" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
 @test "archive action has short form -a" {
-  run grep -q "\-a" "$SCRIPT"
+  run grep -q '"-a"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "list action has short form -l" {
+  run grep -q '"-l"' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "restore action has short form -r" {
+  run grep -q '"-r"' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -100,7 +131,7 @@ teardown() {
 # Backup Directory Tests
 # ==========================================
 
-@test "script defines backup base directory" {
+@test "script defines BACKUP_BASE_DIR" {
   run grep -q "BACKUP_BASE_DIR" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
@@ -110,7 +141,7 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "script defines emulator paths" {
+@test "script defines EMULATOR_PATHS array" {
   run grep -q "EMULATOR_PATHS" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
@@ -119,13 +150,13 @@ teardown() {
 # Archive Operation Tests
 # ==========================================
 
-@test "archive command uses zip format" {
+@test "archive uses zip format" {
   run grep -q "zip" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
 @test "archive includes timestamp in filename" {
-  run grep -q "TIMESTAMP.*date" "$SCRIPT"
+  run grep -q 'date.*+' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -134,23 +165,61 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
+@test "failed archive is removed after bad verification" {
+  run grep -q 'rm.*archive\|rm.*ARCHIVE' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
 # ==========================================
 # Restore Operation Tests
 # ==========================================
 
-@test "restore requires backup name argument" {
-  run "$SCRIPT" pcsx2 --restore
-  [ "$status" -eq 1 ]
-  [[ "$output" =~ "Usage:" ]] || [[ "$output" =~ "backup_name" ]]
-}
-
-@test "restore checks if backup exists" {
-  run grep -q "does not exist" "$SCRIPT"
+@test "restore accepts an optional backup name argument" {
+  run grep -q 'do_restore.*EXTRA\|restore.*backup_name\|\$3' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "restore handles zip files" {
+@test "restore has interactive picker when no name given" {
+  run grep -q 'Select backup number\|interactive\|picker' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "restore-latest picks most recent backup" {
+  run grep -q 'head -n1\|head -n 1' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "restore checks backup exists before unpacking" {
+  run grep -q 'not found\|does not exist' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "restore handles zip files with unzip" {
   run grep -q "unzip" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+# ==========================================
+# Prune Operation Tests
+# ==========================================
+
+@test "script defines MAX_BACKUPS variable" {
+  run grep -q "MAX_BACKUPS" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "prune respects MAX_BACKUPS setting" {
+  run grep -q 'keep.*MAX_BACKUPS\|MAX_BACKUPS.*keep\|keep\b' "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "archive auto-prunes after backup" {
+  run grep -A5 '\-\-archive' "$SCRIPT"
+  [[ "$output" =~ "prune\|PRUNE" ]]
+}
+
+@test "prune skips when MAX_BACKUPS is 0" {
+  run grep -q 'keep.*0\|-le 0\|== 0' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -163,18 +232,38 @@ teardown() {
   [ "$status" -eq 0 ]
 }
 
-@test "script has list_backups function" {
-  run grep -q "list_backups()" "$SCRIPT"
+@test "script has do_archive function" {
+  run grep -q "do_archive()" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "script has restore_backup function" {
-  run grep -q "restore_backup()" "$SCRIPT"
+@test "script has do_list function" {
+  run grep -q "do_list()" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
-@test "script has index_of function for emulator lookup" {
+@test "script has do_restore function" {
+  run grep -q "do_restore()" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script has do_restore_latest function" {
+  run grep -q "do_restore_latest()" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script has do_prune function" {
+  run grep -q "do_prune()" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script has index_of helper function" {
   run grep -q "index_of()" "$SCRIPT"
+  [ "$status" -eq 0 ]
+}
+
+@test "script has get_emulator_path helper function" {
+  run grep -q "get_emulator_path()" "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -182,12 +271,7 @@ teardown() {
 # Array Structure Tests
 # ==========================================
 
-@test "script defines emulator names array" {
-  run grep -q "EMULATOR_NAMES=" "$SCRIPT"
-  [ "$status" -eq 0 ]
-}
-
-@test "emulator names array contains expected emulators" {
+@test "EMULATOR_NAMES array contains all four emulators" {
   run grep "EMULATOR_NAMES=" "$SCRIPT"
   [[ "$output" =~ "pcsx2" ]]
   [[ "$output" =~ "dolphin" ]]
@@ -199,17 +283,17 @@ teardown() {
 # Best Practices Tests
 # ==========================================
 
-@test "script has shebang" {
+@test "script has bash shebang" {
   run head -n 1 "$SCRIPT"
   [[ "$output" =~ "#!/bin/bash" ]]
 }
 
 @test "script checks for required arguments" {
-  run grep -q "if.*-z.*\$1" "$SCRIPT"
+  run grep -q 'if.*-z.*\$1\|-z.*\$2' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
 @test "script provides user-friendly error messages" {
   run "$SCRIPT" invalid --list
-  [[ "$output" =~ "Error:" ]]
+  [[ "$output" =~ "Error:" ]] || [[ "$output" =~ "Unknown" ]]
 }

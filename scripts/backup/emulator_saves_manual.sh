@@ -1,9 +1,11 @@
 #!/bin/bash
 
-# Define base paths for different emulators
+# ─────────────────────────────────────────────
+# Emulator Memory Card Backup & Restore Script
+# ─────────────────────────────────────────────
+
 APPLICATION_SUPPORT_PATH="$HOME/Library/Application Support"
 
-# Define indexed arrays for emulator names and paths
 EMULATOR_NAMES=("pcsx2" "dolphin" "ppsspp" "duckstation")
 EMULATOR_PATHS=(
   "$APPLICATION_SUPPORT_PATH/PCSX2/memcards"
@@ -12,146 +14,257 @@ EMULATOR_PATHS=(
   "$APPLICATION_SUPPORT_PATH/DuckStation/memcards"
 )
 
-# Define the backup base directory
 BACKUP_BASE_DIR="$HOME/Emulator_MemoryCard_Backups"
 
-# Function to check if a directory exists, and create it if necessary
+# How many backups to keep per emulator (0 = keep all)
+MAX_BACKUPS=10
+
+# ─────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────
+
 check_and_create_directory() {
   local dir="$1"
   if [[ ! -d "$dir" ]]; then
-    echo "Directory '$dir' does not exist."
-    read -p "Would you like to create it? (y/n): " response
-    case "$response" in
-      [Yy]*)
-        mkdir -p "$dir"
-        echo "Directory '$dir' created."
-        ;;
-      *)
-        echo "Directory '$dir' is required. Exiting."
-        exit 1
-        ;;
-    esac
+    mkdir -p "$dir"
+    echo "Created directory: $dir"
   fi
 }
 
-# Function to list backups for a given emulator
-list_backups() {
-  local emulator="$1"
-  local backup_dir="$BACKUP_BASE_DIR/$emulator"
-  check_and_create_directory "$backup_dir"
-  echo "Backups for $emulator:"
-  ls -1 "$backup_dir/"
-}
-
-# Function to restore a backup
-restore_backup() {
-  local emulator="$1"
-  local backup="$2"
-  local backup_dir="$BACKUP_BASE_DIR/$emulator"
-  local destination_dir="${EMULATOR_PATHS[$(index_of "$emulator")]}"
-
-  check_and_create_directory "$destination_dir"
-
-  # Verify if the backup exists
-  if [[ ! -f "$backup_dir/$backup" ]]; then
-    echo "Error: Backup '$backup' does not exist for emulator '$emulator'."
-    exit 1
-  fi
-
-  # Restore the backup (unzip or copy)
-  if [[ "$backup" == *.zip ]]; then
-    # Restore from zip
-    unzip -o "$backup_dir/$backup" -d "$destination_dir"
-  else
-    # Restore from directory
-    cp -r "$backup_dir/$backup" "$destination_dir"
-  fi
-
-  echo "Backup '$backup' restored for $emulator."
-}
-
-# Function to find the index of an emulator
 index_of() {
   local emulator="$1"
   for i in "${!EMULATOR_NAMES[@]}"; do
-    if [[ "${EMULATOR_NAMES[i]}" == "$emulator" ]]; then
-      echo "$i"
-      return
-    fi
+    [[ "${EMULATOR_NAMES[i]}" == "$emulator" ]] && echo "$i" && return
   done
-  echo "-1" # Not found
+  echo "-1"
 }
 
-# Check if an action was provided
-if [[ -z "$1" ]]; then
-  echo "Usage: $0 <emulator> [--archive|-a | --list | --restore <backup_name>]"
-  echo "Supported emulators: ${EMULATOR_NAMES[*]}"
-  exit 1
-fi
+get_emulator_path() {
+  local idx
+  idx=$(index_of "$1")
+  [[ "$idx" == "-1" ]] && echo "" || echo "${EMULATOR_PATHS[$idx]}"
+}
 
-# Get the emulator name
-EMULATOR="$1"
-MEMCARD_PATH=""
+print_usage() {
+  echo ""
+  echo "Usage: $0 <emulator|all> [action] [options]"
+  echo ""
+  echo "  Emulators : ${EMULATOR_NAMES[*]} | all"
+  echo ""
+  echo "  Actions:"
+  echo "    --archive  | -a              Create a timestamped zip backup"
+  echo "    --list     | -l              List available backups"
+  echo "    --restore  | -r [name]       Restore a specific backup (interactive if name omitted)"
+  echo "    --restore-latest             Restore the most recent backup"
+  echo "    --prune    [N]               Keep only the N most recent backups (default: $MAX_BACKUPS)"
+  echo ""
+  echo "Examples:"
+  echo "  $0 all --archive               # Backup all emulators"
+  echo "  $0 pcsx2 --restore-latest      # Restore newest pcsx2 backup"
+  echo "  $0 dolphin --restore           # Interactive restore picker"
+  echo "  $0 all --prune 5               # Keep only 5 backups per emulator"
+  echo ""
+}
 
-# Check for the action argument
-ACTION="$2"
-if [[ -z "$ACTION" ]]; then
-  echo "Error: Missing action."
-  echo "Usage: $0 <emulator> [--archive|-a | --list | --restore <backup_name>]"
-  exit 1
-fi
+# ─────────────────────────────────────────────
+# Core Actions
+# ─────────────────────────────────────────────
 
-# Find the memory card path corresponding to the emulator
-for i in "${!EMULATOR_NAMES[@]}"; do
-  if [[ "${EMULATOR_NAMES[i]}" == "$EMULATOR" ]]; then
-    MEMCARD_PATH="${EMULATOR_PATHS[i]}"
-    break
+do_archive() {
+  local emulator="$1"
+  local memcard_path
+  memcard_path=$(get_emulator_path "$emulator")
+
+  if [[ ! -d "$memcard_path" ]]; then
+    echo "  [SKIP] $emulator — source path not found: $memcard_path"
+    return
   fi
-done
 
-# Verify the emulator is supported
-if [[ -z "$MEMCARD_PATH" ]]; then
-  echo "Error: Unsupported emulator '$EMULATOR'. Supported emulators: ${EMULATOR_NAMES[*]}"
+  local backup_dir="$BACKUP_BASE_DIR/$emulator"
+  check_and_create_directory "$backup_dir"
+
+  local timestamp
+  timestamp=$(date +"%Y-%m-%d_%H-%M-%S")
+  local archive="$backup_dir/memcards_backup_$timestamp.zip"
+
+  echo "  [BACKUP] $emulator → $(basename "$archive")"
+  (cd "$memcard_path" && zip -rq "$archive" .)
+
+  if zip -T "$archive" &>/dev/null; then
+    echo "  [OK]     Verified: $archive"
+  else
+    echo "  [ERROR]  Verification failed: $archive"
+    rm -f "$archive"
+    return 1
+  fi
+}
+
+do_list() {
+  local emulator="$1"
+  local backup_dir="$BACKUP_BASE_DIR/$emulator"
+
+  if [[ ! -d "$backup_dir" ]] || [[ -z "$(ls -A "$backup_dir" 2>/dev/null)" ]]; then
+    echo "  No backups found for $emulator."
+    return
+  fi
+
+  echo "  Backups for $emulator:"
+  local i=1
+  while IFS= read -r f; do
+    printf "    %2d) %s\n" "$i" "$(basename "$f")"
+    ((i++))
+  done < <(ls -1t "$backup_dir/"*.zip 2>/dev/null)
+}
+
+do_restore() {
+  local emulator="$1"
+  local backup_name="$2" # optional; if empty, show picker
+  local backup_dir="$BACKUP_BASE_DIR/$emulator"
+  local dest
+  dest=$(get_emulator_path "$emulator")
+
+  if [[ -z "$dest" ]]; then
+    echo "  [ERROR] Unknown emulator: $emulator"
+    return 1
+  fi
+
+  # Build list of available backups
+  local backups=()
+  while IFS= read -r f; do
+    backups+=("$f")
+  done < <(ls -1t "$backup_dir/"*.zip 2>/dev/null)
+
+  if [[ ${#backups[@]} -eq 0 ]]; then
+    echo "  [ERROR] No backups found for $emulator."
+    return 1
+  fi
+
+  local archive=""
+
+  if [[ -n "$backup_name" ]]; then
+    # Specific backup requested
+    archive="$backup_dir/$backup_name"
+    if [[ ! -f "$archive" ]]; then
+      echo "  [ERROR] Backup not found: $archive"
+      return 1
+    fi
+  else
+    # Interactive picker
+    echo ""
+    echo "  Available backups for $emulator:"
+    local i=1
+    for f in "${backups[@]}"; do
+      printf "    %2d) %s\n" "$i" "$(basename "$f")"
+      ((i++))
+    done
+    echo ""
+    read -rp "  Select backup number (1-${#backups[@]}): " choice
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > ${#backups[@]})); then
+      echo "  [ERROR] Invalid selection."
+      return 1
+    fi
+    archive="${backups[$((choice - 1))]}"
+  fi
+
+  check_and_create_directory "$dest"
+
+  echo "  [RESTORE] $emulator ← $(basename "$archive")"
+  unzip -oq "$archive" -d "$dest"
+  echo "  [OK]      Restored to: $dest"
+}
+
+do_restore_latest() {
+  local emulator="$1"
+  local backup_dir="$BACKUP_BASE_DIR/$emulator"
+
+  local latest
+  latest=$(ls -1t "$backup_dir/"*.zip 2>/dev/null | head -n1)
+
+  if [[ -z "$latest" ]]; then
+    echo "  [ERROR] No backups found for $emulator."
+    return 1
+  fi
+
+  do_restore "$emulator" "$(basename "$latest")"
+}
+
+do_prune() {
+  local emulator="$1"
+  local keep="${2:-$MAX_BACKUPS}"
+  local backup_dir="$BACKUP_BASE_DIR/$emulator"
+
+  if [[ "$keep" -le 0 ]]; then
+    echo "  [SKIP] Prune disabled (keep=0)."
+    return
+  fi
+
+  local all_backups=()
+  while IFS= read -r f; do
+    all_backups+=("$f")
+  done < <(ls -1t "$backup_dir/"*.zip 2>/dev/null)
+
+  local total=${#all_backups[@]}
+  if ((total <= keep)); then
+    echo "  [OK] $emulator — $total backup(s), nothing to prune (keeping $keep)."
+    return
+  fi
+
+  local to_delete=$((total - keep))
+  echo "  [PRUNE] $emulator — removing $to_delete old backup(s)..."
+  for ((i = keep; i < total; i++)); do
+    echo "    Deleting: $(basename "${all_backups[$i]}")"
+    rm -f "${all_backups[$i]}"
+  done
+}
+
+# ─────────────────────────────────────────────
+# Dispatch
+# ─────────────────────────────────────────────
+
+if [[ -z "$1" || -z "$2" ]]; then
+  print_usage
   exit 1
 fi
 
-# Handle actions
-case "$ACTION" in
-  --archive | -a)
-    # Create a timestamp for the backup
-    TIMESTAMP=$(date +"%Y-%m-%d_%H-%M-%S")
-    ARCHIVE_NAME="$BACKUP_BASE_DIR/$EMULATOR/memcards_backup_$TIMESTAMP.zip"
+TARGET="$1"
+ACTION="$2"
+EXTRA="$3"
 
-    check_and_create_directory "$BACKUP_BASE_DIR/$EMULATOR"
-
-    # Change to the memory card directory and create the zip archive
-    (cd "$MEMCARD_PATH" && zip -r "$ARCHIVE_NAME" .)
-
-    # Verify the zip archive
-    if zip -T "$ARCHIVE_NAME"; then
-      echo "Archive created and verified for $EMULATOR: $ARCHIVE_NAME"
-    else
-      echo "Error: Archive verification failed for $ARCHIVE_NAME"
-      exit 1
-    fi
-    ;;
-
-  --list)
-    list_backups "$EMULATOR"
-    ;;
-
-  --restore)
-    if [[ -z "$3" ]]; then
-      echo "Usage: $0 <emulator> --restore <backup_name>"
-      exit 1
-    fi
-    BACKUP_NAME="$3"
-    restore_backup "$EMULATOR" "$BACKUP_NAME"
-    ;;
-
-  *)
-    echo "Error: Unsupported action '$ACTION'."
-    echo "Usage: $0 <emulator> [--archive|-a | --list | --restore <backup_name>]"
+# Expand "all" to every emulator
+if [[ "$TARGET" == "all" ]]; then
+  TARGETS=("${EMULATOR_NAMES[@]}")
+else
+  idx=$(index_of "$TARGET")
+  if [[ "$idx" == "-1" ]]; then
+    echo "Error: Unknown emulator '$TARGET'. Supported: ${EMULATOR_NAMES[*]} | all"
     exit 1
-    ;;
-esac
+  fi
+  TARGETS=("$TARGET")
+fi
+
+for emulator in "${TARGETS[@]}"; do
+  case "$ACTION" in
+    --archive | -a)
+      do_archive "$emulator"
+      [[ "$ACTION" == "--archive" || "$ACTION" == "-a" ]] &&
+        [[ "$MAX_BACKUPS" -gt 0 ]] && do_prune "$emulator" "$MAX_BACKUPS"
+      ;;
+    --list | -l)
+      do_list "$emulator"
+      ;;
+    --restore | -r)
+      do_restore "$emulator" "$EXTRA"
+      ;;
+    --restore-latest)
+      do_restore_latest "$emulator"
+      ;;
+    --prune)
+      do_prune "$emulator" "$EXTRA"
+      ;;
+    *)
+      echo "Error: Unknown action '$ACTION'."
+      print_usage
+      exit 1
+      ;;
+  esac
+done

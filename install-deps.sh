@@ -1,82 +1,58 @@
 #!/usr/bin/env bash
 # install-deps.sh — install all dependencies required by shell scripts and their tests.
-# Called by CI workflows and can be run locally to get set up from scratch.
+# Dependencies are declared in deps.brew files colocated with each script category.
 #
 # Usage:
-#   ./install-deps.sh           # install all deps
-#   ./install-deps.sh --check   # check what's missing without installing
+#   ./install-deps.sh              # install all deps
+#   ./install-deps.sh --check      # check what's missing without installing
+#   ./install-deps.sh --check <dir> # check only deps for a specific directory
 
 set -e
-
-# ===========================================================================
-# Dependency manifest — add new tools here only
-# ===========================================================================
-
-# apt package name       brew package name      binary to check
-DEPS=(
-  "ffmpeg                ffmpeg                 ffprobe"
-  "imagemagick           imagemagick            magick"
-  "tesseract-ocr         tesseract              tesseract"
-)
-
-# ===========================================================================
-# Helpers
-# ===========================================================================
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-ok()   { echo -e "${GREEN}✓${NC}  $*"; }
+ok() { echo -e "${GREEN}✓${NC}  $*"; }
 warn() { echo -e "${YELLOW}⚠${NC}  $*"; }
-err()  { echo -e "${RED}✗${NC}  $*"; }
+err() { echo -e "${RED}✗${NC}  $*"; }
 
-detect_os() {
-  if [[ "$RUNNER_OS" == "Linux" ]] || [[ "$(uname -s)" == "Linux" ]]; then
-    echo "linux"
-  elif [[ "$RUNNER_OS" == "macOS" ]] || [[ "$(uname -s)" == "Darwin" ]]; then
-    echo "macos"
-  else
-    echo "unknown"
-  fi
-}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 check_only=false
-[[ "${1:-}" == "--check" ]] && check_only=true
+search_dir="$SCRIPT_DIR/scripts"
 
-OS=$(detect_os)
-missing_apt=()
-missing_brew=()
-all_present=true
+if [[ "${1:-}" == "--check" ]]; then
+  check_only=true
+  [[ -n "${2:-}" ]] && search_dir="$2"
+fi
 
-# ===========================================================================
-# Check what's installed
-# ===========================================================================
+# Collect all packages from deps.brew files, deduplicated
+mapfile -t PACKAGES < <(find "$search_dir" -name "deps.brew" -exec cat {} + | sort -u | grep -v '^#' | grep -v '^$')
+
+if [[ ${#PACKAGES[@]} -eq 0 ]]; then
+  warn "No deps.brew files found under $search_dir"
+  exit 0
+fi
 
 echo ""
 echo "Checking dependencies..."
 echo ""
 
-for dep in "${DEPS[@]}"; do
-  read -r apt_pkg brew_pkg binary <<< "$dep"
-  if command -v "$binary" &>/dev/null; then
-    ok "$binary  ($(command -v "$binary"))"
+missing=()
+for pkg in "${PACKAGES[@]}"; do
+  if command -v "$pkg" &>/dev/null; then
+    ok "$pkg  ($(command -v "$pkg"))"
   else
-    err "$binary  not found"
-    all_present=false
-    missing_apt+=("$apt_pkg")
-    missing_brew+=("$brew_pkg")
+    err "$pkg  not found"
+    missing+=("$pkg")
   fi
 done
 
 echo ""
 
-# ===========================================================================
-# Install if needed
-# ===========================================================================
-
-if $all_present; then
+if [[ ${#missing[@]} -eq 0 ]]; then
   ok "All dependencies already installed."
   echo ""
   exit 0
@@ -90,22 +66,7 @@ fi
 
 echo "Installing missing dependencies..."
 echo ""
-
-if [[ "$OS" == "linux" ]]; then
-  sudo apt-get update -qq
-  sudo apt-get install -y "${missing_apt[@]}"
-elif [[ "$OS" == "macos" ]]; then
-  brew install "${missing_brew[@]}"
-else
-  err "Unknown OS — please install dependencies manually:"
-  for dep in "${DEPS[@]}"; do
-    read -r apt_pkg brew_pkg binary <<< "$dep"
-    if ! command -v "$binary" &>/dev/null; then
-      echo "   $binary  (apt: $apt_pkg / brew: $brew_pkg)"
-    fi
-  done
-  exit 1
-fi
+brew install "${missing[@]}"
 
 echo ""
 ok "All dependencies installed."

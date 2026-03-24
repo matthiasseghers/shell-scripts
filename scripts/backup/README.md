@@ -1,120 +1,34 @@
 # Backup Scripts
 
-This directory contains scripts for backing up data using various methods.
+This directory contains scripts for backing up emulator save data.
 
 ## Overview
 
-Three backup scripts are available:
-- **automated_backup_restic.sh** - Generic automated Restic backup template
+Two backup scripts are available:
 - **emulator_saves_manual.sh** - Manual emulator save backup/restore with ZIP archives
 - **emulator_saves_restic.sh** - Automated emulator save backup using Restic
 
----
-
-## automated_backup_restic.sh
-
-A template script for automated Restic backups with unlock, backup, and retention management.
-
-### Features
-
-- **Automated Unlocking**: Unlocks repository before backup
-- **Flexible Source**: Configurable backup source directory
-- **Retention Policy**: Automatic pruning based on time-based rules
-- **Cache Cleanup**: Cleans up Restic cache after operations
-
-### Prerequisites
-
-```bash
-# Install Restic
-brew install restic
-
-# Or on Linux
-apt install restic  # Debian/Ubuntu
-```
-
-### Configuration
-
-Edit the script to set these variables:
-
-```bash
-RESTIC_PASSWD="/home/<USERNAME>/restic_password"
-BACKUP_SOURCE="/<LOCATION_TO_BACKUP>"
-BACKUP_REPO="<PATH_TO_STORE_BACKUP>/<BACKUP_NAME>"
-KEEP_OPTIONS="--keep-hourly 2 --keep-daily 6 --keep-weekly 3 --keep-monthly 1"
-```
-
-**Variables explained:**
-- `RESTIC_PASSWD`: Path to file containing Restic repository password
-- `BACKUP_SOURCE`: Directory to backup
-- `BACKUP_REPO`: Path to Restic repository
-- `KEEP_OPTIONS`: Retention policy for old backups
-
-### Retention Policy
-
-Default retention (customize as needed):
-- Keep 2 hourly backups
-- Keep 6 daily backups
-- Keep 3 weekly backups
-- Keep 1 monthly backup
-
-### Usage
-
-```bash
-# After configuring the script
-./automated_backup_restic.sh
-```
-
-### Setup Steps
-
-1. **Create password file**:
-   ```bash
-   echo "your-strong-password" > ~/restic_password
-   chmod 600 ~/restic_password
-   ```
-
-2. **Initialize Restic repository** (first time only):
-   ```bash
-   restic -p ~/restic_password -r /path/to/repo init
-   ```
-
-3. **Configure script variables** (see Configuration section)
-
-4. **Run backup**:
-   ```bash
-   ./automated_backup_restic.sh
-   ```
-
-5. **Automate with cron** (optional):
-   ```bash
-   # Edit crontab
-   crontab -e
-   
-   # Add line for daily backup at 2 AM
-   0 2 * * * /path/to/automated_backup_restic.sh
-   ```
-
-### What It Does
-
-1. **Unlock**: Removes stale locks from repository
-2. **Backup**: Creates new snapshot of source directory
-3. **Forget**: Removes old snapshots based on retention policy
-4. **Prune**: Reclaims space from deleted snapshots
-5. **Cleanup**: Cleans Restic cache
+A launchd plist is provided for automated scheduling on macOS:
+- **com.user.emulator-saves-backup.plist** - Runs the Restic backup daily
 
 ---
 
 ## emulator_saves_manual.sh
 
-Manual backup and restore script for emulator save files and memory cards with ZIP archive support.
+Backup and restore script for emulator save files and memory cards with ZIP archive support,
+automatic pruning, and interactive restore.
 
 ### Features
 
 - **Multiple Emulator Support**: PCSX2, Dolphin, PPSSPP, DuckStation
+- **Bulk Backup**: Back up all emulators at once with the `all` target
 - **Archive Creation**: Creates timestamped ZIP archives
 - **Archive Verification**: Verifies ZIP integrity after creation
-- **Restore Capability**: Restore from any previous backup
+- **Interactive Restore**: Numbered picker when no backup name is specified
+- **Restore Latest**: One-command restore of the most recent backup
+- **Auto-Prune**: Automatically removes old backups after archiving (configurable)
+- **Manual Prune**: Trim backups for any emulator on demand
 - **List Backups**: View all available backups for an emulator
-- **Interactive Prompts**: Asks before creating missing directories
 
 ### Supported Emulators
 
@@ -125,23 +39,37 @@ Manual backup and restore script for emulator save files and memory cards with Z
 | PPSSPP | `~/Library/Application Support/PPSSPP/memstick/PSP/SAVEDATA` |
 | DuckStation | `~/Library/Application Support/DuckStation/memcards` |
 
+### Configuration
+
+At the top of the script, set `MAX_BACKUPS` to control how many backups are kept per emulator
+after each archive operation. Set to `0` to disable auto-pruning.
+
+```bash
+MAX_BACKUPS=10  # Keep the 10 most recent backups per emulator (0 = keep all)
+```
+
 ### Usage
 
 ```bash
-# Create backup
-./emulator_saves_manual.sh <emulator> --archive
-./emulator_saves_manual.sh <emulator> -a
-
-# List backups
-./emulator_saves_manual.sh <emulator> --list
-
-# Restore backup
-./emulator_saves_manual.sh <emulator> --restore <backup_name>
+./emulator_saves_manual.sh <emulator|all> [action] [options]
 ```
+
+| Action | Short | Description |
+|--------|-------|-------------|
+| `--archive` | `-a` | Create a timestamped ZIP backup |
+| `--list` | `-l` | List available backups |
+| `--restore [name]` | `-r` | Restore a backup (interactive picker if name omitted) |
+| `--restore-latest` | | Restore the most recent backup |
+| `--prune [N]` | | Keep only the N most recent backups (default: `MAX_BACKUPS`) |
 
 ### Examples
 
-**Backup PCSX2 memory cards**:
+**Backup all emulators at once**:
+```bash
+./emulator_saves_manual.sh all --archive
+```
+
+**Backup a single emulator**:
 ```bash
 ./emulator_saves_manual.sh pcsx2 --archive
 # Creates: ~/Emulator_MemoryCard_Backups/pcsx2/memcards_backup_2026-01-28_14-30-45.zip
@@ -152,16 +80,28 @@ Manual backup and restore script for emulator save files and memory cards with Z
 ./emulator_saves_manual.sh ppsspp --list
 ```
 
-**Restore a specific backup**:
+**Restore interactively** (shows a numbered picker):
+```bash
+./emulator_saves_manual.sh dolphin --restore
+#   Available backups for dolphin:
+#    1) memcards_backup_2026-03-19_14-00-00.zip
+#    2) memcards_backup_2026-03-18_14-00-00.zip
+#   Select backup number (1-2):
+```
+
+**Restore the latest backup without prompts**:
+```bash
+./emulator_saves_manual.sh pcsx2 --restore-latest
+```
+
+**Restore a specific backup by name**:
 ```bash
 ./emulator_saves_manual.sh dolphin --restore memcards_backup_2026-01-28_14-30-45.zip
 ```
 
-**Backup all emulators**:
+**Manually prune old backups** (keep 5 most recent):
 ```bash
-for emu in pcsx2 dolphin ppsspp duckstation; do
-    ./emulator_saves_manual.sh $emu --archive
-done
+./emulator_saves_manual.sh all --prune 5
 ```
 
 ### Backup Location
@@ -172,79 +112,64 @@ Backups are stored in: `~/Emulator_MemoryCard_Backups/<emulator>/`
 
 Archives are named: `memcards_backup_YYYY-MM-DD_HH-MM-SS.zip`
 
-Example: `memcards_backup_2026-01-28_14-30-45.zip`
-
-### Tips
-
-1. **Regular backups before gaming sessions**:
-   ```bash
-   ./emulator_saves_manual.sh pcsx2 -a
-   ```
-
-2. **Backup before major updates**: Create backup before updating emulators
-
-3. **Clean old backups**: Periodically remove old backups to save space:
-   ```bash
-   # List backups
-   ./emulator_saves_manual.sh pcsx2 --list
-   
-   # Manually delete old ones
-   rm ~/Emulator_MemoryCard_Backups/pcsx2/memcards_backup_<old_date>.zip
-   ```
-
-4. **Test restores**: Occasionally test restoring to verify backups work
-
 ---
 
 ## emulator_saves_restic.sh
 
-Automated Restic-based backup for emulator save files with retention management.
+Thin wrapper script around Restic for automated emulator save backups. All backup, retention,
+deduplication, and restore logic is handled by Restic — the script exists only to store
+configuration and sequence the necessary Restic commands.
 
 ### Features
 
-- **Multiple Sources**: Backs up saves from multiple emulators in one operation
-- **Network Shares**: Supports backing up from network-mounted volumes
-- **Automated Retention**: Keeps time-based snapshots automatically
-- **Deduplication**: Restic efficiently handles duplicate data
-- **Encryption**: Backups are encrypted at rest
-- **Fast Incremental**: Only backs up changed files
-
-### Backed Up Locations
-
-By default, backs up:
-- PCSX2 memory cards
-- DuckStation saves
-- 3DS Checkpoint saves (from network share)
-
-### Prerequisites
-
-```bash
-# Install Restic
-brew install restic
-```
+- **All Four Emulators**: PCSX2, Dolphin, PPSSPP, DuckStation backed up in one run
+- **Deduplication**: Restic stores only changed data — frequent backups cost almost no extra space
+- **Encryption**: Repository is encrypted at rest
+- **Automatic Retention**: Old snapshots pruned based on a time-based policy
+- **Low Maintenance**: No backup or restore logic to maintain — Restic handles it
 
 ### Configuration
 
-Edit the script to customize:
+Edit the variables at the top of the script:
 
 ```bash
-RESTIC_PASSWD="$HOME/restic_password"
-BACKUP_SOURCES=(
-    "$HOME/Library/Application Support/PCSX2/memcards/"
-    "$HOME/Library/Application Support/DuckStation/"
-    "/Volumes/192.168.1.38/3ds/Checkpoint"
-)
-BACKUP_REPO="$HOME/restic_save_games"
-KEEP_OPTIONS="--keep-hourly 2 --keep-daily 6 --keep-weekly 3 --keep-monthly 1"
+RESTIC_PASSWD="$HOME/restic_password"       # Path to password file
+BACKUP_REPO="$HOME/restic_emulator_saves"   # Where the repository lives
+KEEP_OPTIONS="--keep-daily 7 --keep-weekly 4 --keep-monthly 2"
 ```
 
 ### Retention Policy
 
 Default retention:
-- Keep 2 hourly snapshots
-- Keep 6 daily snapshots
-- Keep 3 weekly snapshots  
-- Keep 1 monthly snapshot
+- Keep daily snapshots for 7 days
+- Keep weekly snapshots for 4 weeks
+- Keep monthly snapshots for 2 months
+
+### Prerequisites
+
+```bash
+brew install restic
+```
+
+### Setup (one-time)
+
+1. **Create a password file**:
+   ```bash
+   echo "your-strong-password" > ~/restic_password
+   chmod 600 ~/restic_password
+   ```
+
+2. **Initialize the repository**:
+   ```bash
+   restic -p ~/restic_password -r ~/restic_emulator_saves init
+   ```
+
+3. **Run a first backup to verify**:
+   ```bash
+   ./emulator_saves_restic.sh
+   ```
+
+4. **Load the launchd plist** (see below) for automated daily runs.
 
 ### Usage
 
@@ -252,159 +177,109 @@ Default retention:
 ./emulator_saves_restic.sh
 ```
 
-### Setup Steps
-
-1. **Create password file**:
-   ```bash
-   echo "your-strong-password" > ~/restic_password
-   chmod 600 ~/restic_password
-   ```
-
-2. **Initialize repository** (first time only):
-   ```bash
-   restic -p ~/restic_password -r ~/restic_save_games init
-   ```
-
-3. **Mount network shares** (if using network locations):
-   ```bash
-   # Mount your network share
-   mount -t nfs 192.168.1.38:/3ds /Volumes/192.168.1.38/3ds
-   ```
-
-4. **Run first backup**:
-   ```bash
-   ./emulator_saves_restic.sh
-   ```
-
-5. **Automate with cron** (optional):
-   ```bash
-   # Edit crontab
-   crontab -e
-   
-   # Backup hourly
-   0 * * * * /path/to/emulator_saves_restic.sh
-   
-   # Or backup daily at 3 AM
-   0 3 * * * /path/to/emulator_saves_restic.sh
-   ```
-
-### What It Does
-
-1. **Unlock**: Removes stale repository locks
-2. **Backup**: Creates encrypted snapshot of all save locations
-3. **Forget**: Removes old snapshots per retention policy
-4. **Prune**: Reclaims disk space from deleted snapshots
-5. **Cleanup**: Cleans Restic cache
-
-### Adding More Emulators
-
-To backup additional emulators, add their paths to `BACKUP_SOURCES`:
-
-```bash
-BACKUP_SOURCES=(
-    "$HOME/Library/Application Support/PCSX2/memcards/"
-    "$HOME/Library/Application Support/DuckStation/"
-    "$HOME/Library/Application Support/RetroArch/saves/"  # Add this
-    "/Volumes/192.168.1.38/3ds/Checkpoint"
-)
-```
-
-### Useful Restic Commands
+### Restoring
 
 **List all snapshots**:
 ```bash
-restic -p ~/restic_password -r ~/restic_save_games snapshots
+restic -p ~/restic_password -r ~/restic_emulator_saves snapshots
 ```
 
-**Restore latest snapshot**:
+**Restore the latest snapshot**:
 ```bash
-restic -p ~/restic_password -r ~/restic_save_games restore latest --target /tmp/restore
+restic -p ~/restic_password -r ~/restic_emulator_saves restore latest --target /tmp/restore
 ```
 
-**Restore specific file**:
+**Restore only one emulator's saves**:
 ```bash
-restic -p ~/restic_password -r ~/restic_save_games restore latest \
-    --target /tmp/restore \
-    --include "*/PCSX2/memcards/*"
+restic -p ~/restic_password -r ~/restic_emulator_saves restore latest \
+  --target /tmp/restore --include "*/PCSX2/*"
 ```
 
 **Check repository integrity**:
 ```bash
-restic -p ~/restic_password -r ~/restic_save_games check
-```
-
-**View repository stats**:
-```bash
-restic -p ~/restic_password -r ~/restic_save_games stats
+restic -p ~/restic_password -r ~/restic_emulator_saves check
 ```
 
 ---
 
-## Comparison: Manual vs Restic
+## com.user.emulator-saves-backup.plist
+
+Schedules `emulator_saves_restic.sh` to run daily via launchd.
+
+### Why launchd instead of cron
+
+launchd is the correct scheduler for macOS because it handles sleep gracefully: if the Mac
+is asleep at the scheduled time, the job runs once when it next wakes. Cron skips missed
+runs entirely, which means a sleeping Mac may never run the backup. Missing multiple scheduled
+times does not cause multiple catch-up runs — launchd runs it exactly once on wake.
+
+### Setup
+
+1. **Edit the plist** — replace `YOUR_USERNAME` with your actual username and verify the
+   script path.
+
+2. **Place it in LaunchAgents**:
+   ```bash
+   cp com.user.emulator-saves-backup.plist ~/Library/LaunchAgents/
+   ```
+
+3. **Load it**:
+   ```bash
+   launchctl load ~/Library/LaunchAgents/com.user.emulator-saves-backup.plist
+   ```
+
+4. **To unload or disable**:
+   ```bash
+   launchctl unload ~/Library/LaunchAgents/com.user.emulator-saves-backup.plist
+   ```
+
+Backup output is logged to `~/restic_emulator_saves/backup.log`.
+
+---
+
+## Comparison: Manual ZIP vs Restic
 
 | Feature | emulator_saves_manual.sh | emulator_saves_restic.sh |
 |---------|--------------------------|--------------------------|
 | **Compression** | ZIP | Deduplicated + Encrypted |
 | **Encryption** | No | Yes |
-| **Speed** | Fast for small saves | Fast incremental |
 | **Storage** | Full copy each time | Efficient deduplication |
-| **Restore** | Simple unzip | Restic restore command |
-| **Retention** | Manual deletion | Automatic |
-| **Network Support** | No | Yes |
+| **Restore** | Interactive picker / restore-latest | `restic restore` command |
+| **Retention** | Auto-prune after archive | Automatic time-based |
+| **Scheduling** | launchd plist | launchd plist |
+| **Maintenance** | Own the logic | Restic owns the logic |
+| **Dependencies** | None (bash + zip) | Restic |
 | **Best For** | Quick manual backups | Automated scheduled backups |
 
-### When to Use Each
+### When to use each
 
 **Use emulator_saves_manual.sh when:**
-- You want simple, manual backups before gaming
-- You prefer ZIP files you can easily browse
-- You want quick restore without special tools
-- You backup infrequently
+- You want a quick backup before a gaming session
+- You prefer plain ZIP files you can browse or share without any tooling
 
 **Use emulator_saves_restic.sh when:**
-- You want automated scheduled backups
-- You need encrypted backups
-- You backup frequently (deduplication saves space)
-- You backup from network shares
-- You want flexible restore options
+- You want fully automated backups you never have to think about
+- You back up frequently and care about storage efficiency
+- You want encryption at rest
 
-## General Tips
-
-1. **Test your backups**: Regularly verify you can restore from backups
-
-2. **Multiple backup strategies**: Consider using both manual and automated backups:
-   - Automated daily backups with Restic
-   - Manual backups before important gaming sessions
-
-3. **Off-site backups**: Consider backing up to external drives or cloud storage
-
-4. **Monitor backup size**: Keep an eye on backup repository size
-
-5. **Document your setup**: Keep notes on your backup configuration
-
-6. **Verify before restoring**: List backups first to confirm you're restoring the right one
+---
 
 ## Troubleshooting
 
 **Restic "repository is locked" error**:
 ```bash
-restic -p ~/restic_password -r ~/restic_save_games unlock
+restic -p ~/restic_password -r ~/restic_emulator_saves unlock
 ```
-
-**Network share not accessible**:
-- Verify network connection
-- Check mount point exists
-- Ensure share is mounted before running backup
 
 **Permission denied errors**:
 - Check file permissions on source directories
-- Ensure script has execute permissions: `chmod +x script.sh`
+- Ensure scripts have execute permissions: `chmod +x script.sh`
 
-**Backup taking too long**:
-- Check for large files in backup sources
-- Consider excluding unnecessary files
-- For Restic, verify repository isn't on slow storage
+**Plist not running**:
+- Verify `YOUR_USERNAME` was replaced in the plist
+- Check the log file at `~/restic_emulator_saves/backup.log`
+- Reload the plist: `launchctl unload` then `launchctl load`
 
-**Missing directories**:
-- Manual script will prompt to create directories
-- For Restic, ensure all source paths exist or remove non-existent paths
+**Missing save directories**:
+- If an emulator path doesn't exist, restic will error on that path
+- Remove unused paths from `BACKUP_SOURCES` in the script
