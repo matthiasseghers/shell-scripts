@@ -8,6 +8,13 @@ setup() {
   export TEST_DIR="/tmp/bats_sidebar_check"
   mkdir -p "$TEST_DIR"
 
+  # sidebar-check.sh requires bash 4+; skip if not available
+  local bash_major
+  bash_major=$(env bash -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null || echo 0)
+  if [[ "$bash_major" -lt 4 ]]; then
+    skip "sidebar-check.sh requires bash 4+ (install: brew install bash)"
+  fi
+
   # 3456x1944 — smaller than 4K output (real-world example)
   export VIDEO_SMALL="$TEST_DIR/small.mp4"
   if [[ ! -f "$VIDEO_SMALL" ]]; then

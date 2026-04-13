@@ -18,6 +18,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          brew install bash
           chmod +x install-deps.sh
           ./install-deps.sh
 

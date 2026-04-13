@@ -7,9 +7,14 @@ setup() {
   # Create a test video file (1 second, 320x240)
   export TEST_VIDEO="/tmp/bats_test_video.mp4"
   if [[ ! -f "$TEST_VIDEO" ]]; then
-    ffmpeg -f lavfi -i testsrc=duration=1:size=320x240:rate=1 \
-      -f lavfi -i sine=frequency=1000:duration=1 \
-      -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+    if command -v ffmpeg &>/dev/null; then
+      ffmpeg -f lavfi -i testsrc=duration=1:size=320x240:rate=1 \
+        -f lavfi -i sine=frequency=1000:duration=1 \
+        -pix_fmt yuv420p "$TEST_VIDEO" -y >/dev/null 2>&1
+    else
+      # Create a dummy file so argument-validation tests can run without ffmpeg
+      touch "$TEST_VIDEO"
+    fi
   fi
 
   export SCRIPT="./scripts/video/video-ocr.sh"

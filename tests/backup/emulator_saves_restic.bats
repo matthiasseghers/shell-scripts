@@ -120,13 +120,13 @@ setup() {
 @test "restic commands use RESTIC_PASSWD" {
   # Every restic invocation should reference the password variable
   local restic_lines
-  restic_lines=$(grep "^restic" "$SCRIPT" | grep -v "RESTIC_PASSWD")
+  restic_lines=$(grep "^restic" "$SCRIPT" | grep -v "RESTIC_PASSWD" || true)
   [ -z "$restic_lines" ]
 }
 
 @test "restic commands use BACKUP_REPO" {
   local restic_lines
-  restic_lines=$(grep "^restic" "$SCRIPT" | grep -v "BACKUP_REPO")
+  restic_lines=$(grep "^restic" "$SCRIPT" | grep -v "BACKUP_REPO" || true)
   [ -z "$restic_lines" ]
 }
 

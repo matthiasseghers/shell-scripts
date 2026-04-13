@@ -118,12 +118,12 @@ teardown() {
 }
 
 @test "list action has short form -l" {
-  run grep -q '"-l"' "$SCRIPT"
+  run grep -q -- '-l)' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
 @test "restore action has short form -r" {
-  run grep -q '"-r"' "$SCRIPT"
+  run grep -q -- '-r)' "$SCRIPT"
   [ "$status" -eq 0 ]
 }
 
@@ -215,7 +215,7 @@ teardown() {
 
 @test "archive auto-prunes after backup" {
   run grep -A5 '\-\-archive' "$SCRIPT"
-  [[ "$output" =~ "prune\|PRUNE" ]]
+  [[ "$output" =~ (prune|PRUNE) ]]
 }
 
 @test "prune skips when MAX_BACKUPS is 0" {

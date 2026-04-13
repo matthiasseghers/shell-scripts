@@ -122,7 +122,7 @@ for WEBM in "${WEBM_FILES[@]}"; do
       continue
     elif [[ "$CONFLICT" == "prompt" ]]; then
       echo -e "  ${YELLOW}⚠ ${BASENAME}.mp4 already exists.${RESET} Overwrite? [y/N] \c"
-      read -r REPLY </dev/tty
+      read -r REPLY
       if [[ "$REPLY" != "y" && "$REPLY" != "Y" ]]; then
         echo -e "  ${YELLOW}Skipped${RESET}"
         SKIPPED=$((SKIPPED + 1))
