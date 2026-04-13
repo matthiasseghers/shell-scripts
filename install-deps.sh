@@ -43,19 +43,22 @@ echo ""
 echo "Checking dependencies..."
 echo ""
 
-missing=()
-for pkg in "${PACKAGES[@]}"; do
-  if command -v "$pkg" &>/dev/null; then
-    ok "$pkg  ($(command -v "$pkg"))"
+missing_formulas=()
+for entry in "${PACKAGES[@]}"; do
+  # Support "formula:binary" format; fall back to formula as binary name
+  formula="${entry%%:*}"
+  binary="${entry##*:}"
+  if command -v "$binary" &>/dev/null; then
+    ok "$formula  ($(command -v "$binary"))"
   else
-    err "$pkg  not found"
-    missing+=("$pkg")
+    err "$formula  not found"
+    missing_formulas+=("$formula")
   fi
 done
 
 echo ""
 
-if [[ ${#missing[@]} -eq 0 ]]; then
+if [[ ${#missing_formulas[@]} -eq 0 ]]; then
   ok "All dependencies already installed."
   echo ""
   exit 0
@@ -69,7 +72,7 @@ fi
 
 echo "Installing missing dependencies..."
 echo ""
-brew install "${missing[@]}"
+brew install "${missing_formulas[@]}"
 
 echo ""
 ok "All dependencies installed."

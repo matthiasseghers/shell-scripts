@@ -1,4 +1,4 @@
-ffmpeg-full
-imagemagick
+ffmpeg-full:ffmpeg
+imagemagick:magick
 parallel
 tesseract

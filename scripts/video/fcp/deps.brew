@@ -1,2 +1,2 @@
 # requires tap: brew tap TheAcharya/homebrew-tap
-TheAcharya/homebrew-tap/markers-extractor
+TheAcharya/homebrew-tap/markers-extractor:markers-extractor
