@@ -29,7 +29,10 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 # Collect all packages from deps.brew files, deduplicated
-mapfile -t PACKAGES < <(find "$search_dir" -name "deps.brew" -exec cat {} + | sort -u | grep -v '^#' | grep -v '^$')
+PACKAGES=()
+while IFS= read -r pkg; do
+  PACKAGES+=("$pkg")
+done < <(find "$search_dir" -name "deps.brew" -exec cat {} + | sort -u | grep -v '^#' | grep -v '^$')
 
 if [[ ${#PACKAGES[@]} -eq 0 ]]; then
   warn "No deps.brew files found under $search_dir"
