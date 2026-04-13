@@ -27,7 +27,7 @@ fi
 INPUT_DIR="$1"
 MODE="sdr"
 CONFLICT="prompt"
-CRF=15
+CRF=18
 PRESET="slow"
 
 # Parse optional flags
