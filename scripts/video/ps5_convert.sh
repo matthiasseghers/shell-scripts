@@ -35,7 +35,7 @@ shift
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --mode)
-      if [[ -z "${2:-}" || ( "$2" != "sdr" && "$2" != "hdr" ) ]]; then
+      if [[ -z "${2:-}" || ("$2" != "sdr" && "$2" != "hdr") ]]; then
         echo -e "${RED}Error:${RESET} --mode must be 'sdr' or 'hdr'"
         exit 1
       fi
@@ -142,7 +142,7 @@ for WEBM in "${WEBM_FILES[@]}"; do
   fi
 
   MODE_UPPER=$(echo "$MODE" | tr '[:lower:]' '[:upper:]')
-  SOURCE_LABEL=$( [[ "$IS_HDR" == true ]] && echo "HDR" || echo "SDR" )
+  SOURCE_LABEL=$([[ "$IS_HDR" == true ]] && echo "HDR" || echo "SDR")
   echo -e "  ${CYAN}→ Converting...${RESET} (${SOURCE_LABEL}→${MODE_UPPER})"
 
   # Build ffmpeg command based on source and target mode

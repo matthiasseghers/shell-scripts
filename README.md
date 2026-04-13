@@ -6,228 +6,108 @@
 [![Tests](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/test.yml)
 [![Integration Tests](https://github.com/matthiasseghers/shell-scripts/actions/workflows/integration-test.yml/badge.svg)](https://github.com/matthiasseghers/shell-scripts/actions/workflows/integration-test.yml)
 
-A collection of shell scripts for various automation tasks, organized by category for easy discovery and use.
+A collection of macOS shell scripts for automation tasks, organised by category. All scripts target macOS and assume Homebrew is available.
 
-## Overview
+---
 
-This repository provides shell scripts for common automation needs including backups, video processing, and video editing workflows. Each script is designed to be standalone and well-documented.
+## Setup
 
-> **Platform**: macOS. Scripts target macOS and assume Homebrew is available.
+Run once after cloning:
 
-## Directory Structure
-
-```
-scripts/
-├── backup/          # Backup automation scripts
-│   ├── emulator_saves_manual.sh
-│   ├── emulator_saves_restic.sh
-│   ├── deps.brew
-│   └── README.md
-├── data/            # Data processing scripts
-│   ├── pdf_to_csv.sh
-│   └── README.md
-└── video/           # Video processing scripts
-    ├── video-ocr.sh
-    ├── fcp/         # Final Cut Pro scripts
-    │   ├── extract_markers.sh
-    │   ├── deps.brew
-    │   └── README.md
-    └── README.md
+```bash
+./setup.sh
 ```
 
-## Quick Start
+This installs `pre-commit`, wires up the git hooks, and installs all script dependencies via Homebrew.
 
-### Install dependencies
-
-Each script category declares its dependencies in a `deps.brew` file. To install everything at once:
+To install script dependencies only (no hook setup):
 
 ```bash
 ./install-deps.sh
 ```
 
-To check what's missing without installing:
+---
 
-```bash
-./install-deps.sh --check
-```
+## Root Scripts
 
-Each directory contains its own detailed README with usage instructions.
+| Script | Purpose |
+|--------|---------|
+| `setup.sh` | One-time repo setup — installs `pre-commit` and all deps |
+| `install-deps.sh` | Installs Homebrew deps declared in each `deps.brew` file |
+| `run-tests.sh` | Runs unit tests (`*.bats`) |
+| `run-integration-tests.sh` | Runs integration tests (`*.integration.bats`) |
+| `run-all-tests.sh` | Runs unit + integration tests |
 
-### Backup Scripts
-📁 **[scripts/backup/](scripts/backup/README.md)**
+---
 
-- **emulator_saves_manual.sh** - Manual emulator save backup/restore with ZIP archives
-- **emulator_saves_restic.sh** - Automated emulator save backup with Restic
+## Scripts
 
-See [scripts/backup/README.md](scripts/backup/README.md) for detailed documentation.
+### 📁 [scripts/video/](scripts/video/README.md)
 
-### Video Scripts
-📁 **[scripts/video/](scripts/video/README.md)**
+Video processing and conversion scripts.
 
-- **video-ocr.sh** - OCR pipeline for extracting and searching text in videos
-- **sidebar-check.sh** - Calculate sidebar/letterbox layout and test image fit
+| Script | Description |
+|--------|-------------|
+| `ps5_convert.sh` | Batch-convert PS5 `.webm` recordings to `.mp4` — auto-detects SDR/HDR per file |
+| `video-ocr.sh` | OCR pipeline for extracting and searching text in videos |
+| `detect-silence.sh` | Detect silent segments in a video for easier editing |
+| `sidebar-check.sh` | Calculate sidebar/letterbox space available on an editor timeline |
+| `fcp/extract_markers.sh` | Extract Final Cut Pro markers as YouTube chapter timestamps |
 
-See [scripts/video/README.md](scripts/video/README.md) for detailed documentation.
+### 📁 [scripts/backup/](scripts/backup/README.md)
 
-### Data Scripts
-📁 **[scripts/data/](scripts/data/README.md)**
+Save and data backup scripts.
 
-- **pdf_to_csv.sh** - Convert a bank statement PDF to CSV
+| Script | Description |
+|--------|-------------|
+| `emulator_saves_manual.sh` | Manual emulator save backup/restore using ZIP archives |
+| `emulator_saves_restic.sh` | Automated emulator save backup using Restic |
 
-See [scripts/data/README.md](scripts/data/README.md) for detailed documentation.
+### 📁 [scripts/data/](scripts/data/README.md)
 
-### Final Cut Pro Scripts
-📁 **[scripts/video/fcp/](scripts/video/fcp/README.md)**
+Data processing utilities.
 
-- **extract_markers.sh** - Extract markers from an FCPXML/FCPXMLD and output YouTube chapter timestamps
+| Script | Description |
+|--------|-------------|
+| `pdf_to_csv.sh` | Convert a bank statement PDF to CSV |
 
-See [scripts/video/fcp/README.md](scripts/video/fcp/README.md) for detailed documentation.
-
-## Usage Examples
-
-### Backup an emulator's saves
-```bash
-./scripts/backup/emulator_saves_manual.sh pcsx2 --archive
-```
-
-### Restore the latest backup
-```bash
-./scripts/backup/emulator_saves_manual.sh pcsx2 --restore-latest
-```
-
-### Search for text in a video
-```bash
-./scripts/video/video-ocr.sh video.mp4 -s "error|warning"
-```
-
-### Extract YouTube chapter timestamps from a Final Cut Pro project
-```bash
-./scripts/video/fcp/extract_markers.sh ~/Desktop/MyVideo.fcpxmld
-```
-
-### Convert a PDF statement to CSV
-```bash
-./scripts/data/pdf_to_csv.sh statement.pdf
-```
-
-## Dependencies
-
-Dependencies are declared in `deps.brew` files colocated with each script category.
-Run `./install-deps.sh` to install everything, or `./install-deps.sh --check` to see what's missing.
-
-| Category | Dependencies |
-|----------|-------------|
-| Backup | `restic` |
-| Video | `ffmpeg`, `tesseract`, `imagemagick` |
-| FCP | `markers-extractor` (via `TheAcharya/homebrew-tap`) |
-| Data | `pdftotext` |
-
-## Security — Preventing Secret Leaks
-
-This repository uses multiple layers to prevent committing sensitive data.
-
-### 1. Pre-commit Hook (Local)
-
-A git pre-commit hook scans for secrets before they reach your local repository.
-
-**Setup** (one-time after cloning):
-```bash
-# Point Git to use the versioned hooks directory
-git config core.hooksPath .hooks
-
-# Install security and formatting tools (optional but recommended)
-brew install git-secrets gitleaks shfmt
-git secrets --install -f && git secrets --register-aws
-```
-
-The pre-commit hook will automatically:
-- **Scan for secrets**: AWS keys, private keys, passwords, API tokens
-- **Check formatting**: Ensures consistent shell script formatting
-
-### 2. GitHub Actions (CI/CD)
-
-Multiple checks run automatically on every push and pull request:
-- **TruffleHog**: Secret scanning safety net
-- **Shellcheck**: Shell script linting and best practices
-- **shfmt**: Code formatting consistency
-- **Markdown Link Check**: Validates documentation links
-
-### Bypass Pre-commit Check (Not Recommended)
-```bash
-git commit --no-verify
-```
-
-**Scan for secrets manually**:
-```bash
-# Using gitleaks
-gitleaks detect --verbose
-
-# Using git-secrets
-git secrets --scan
-```
-
-**Format shell scripts**:
-```bash
-# Check formatting (what CI does)
-shfmt -d -i 2 -ci scripts/
-
-# Auto-fix formatting
-shfmt -w -i 2 -ci scripts/
-```
-
-**Check markdown links**:
-```bash
-npm install -g markdown-link-check
-find . -name "*.md" -exec markdown-link-check {} \;
-```
+---
 
 ## Testing
 
-This repository includes automated tests using [BATS (Bash Automated Testing System)](https://github.com/bats-core/bats-core).
-
-### Running Tests Locally
+Tests use [BATS](https://github.com/bats-core/bats-core). The `tests/` directory mirrors `scripts/` — one `.bats` file per script.
 
 ```bash
-# Install BATS
-brew install bats-core
+brew install bats-core   # install BATS if needed
 
-# Run unit tests only (fast, < 10 seconds)
-./run-tests.sh
-
-# Run integration tests (slow, several minutes)
-./run-integration-tests.sh
-
-# Run all tests (unit + integration)
-./run-all-tests.sh
-
-# Run a specific test file
-bats tests/video/video-ocr.bats
+./run-tests.sh           # unit tests (fast)
+./run-integration-tests.sh  # integration tests (slow)
+./run-all-tests.sh       # both
 ```
 
-### Test Types
+See [tests/README.md](tests/README.md) for details.
 
-- **Unit Tests** (`.bats`): Fast structural validation, run on every commit
-- **Integration Tests** (`.integration.bats`): End-to-end tests with actual file processing, require `RUN_INTEGRATION_TESTS=1`
+---
 
-### CI/CD Testing
+## Pre-commit Hooks
 
-Tests run automatically on GitHub Actions:
-- **Unit tests**: Run on every push and PR (< 1 minute)
-- **Integration tests**: Manual trigger or nightly schedule (up to 30 minutes)
-- **Platform**: macOS
+Hooks are managed via [pre-commit](https://pre-commit.com/) and declared in `.pre-commit-config.yaml`. `./setup.sh` installs them automatically.
 
-See [tests/README.md](tests/README.md) for more details on writing and running tests.
+| Hook | What it checks |
+|------|---------------|
+| `gitleaks` | Secrets and credentials in staged files |
+| `shfmt` | Shell script formatting |
+
+Run manually:
+```bash
+pre-commit run --all-files
+```
+
+---
 
 ## Contributing
 
-Contributions are welcome! Please ensure scripts:
-- Are well-documented with usage examples
-- Include error handling
-- Pass shellcheck validation
-- Pass all tests (`./run-tests.sh`)
-- Follow existing code style
-- Declare dependencies in a `deps.brew` file in the script's directory
-
-## License
-
-See LICENSE file for details.
+- Add a `deps.brew` file in the script's directory for any new Homebrew dependencies
+- Include a test file in the matching `tests/` subdirectory
+- Scripts must pass `shellcheck` and `shfmt`
+- Document the script in its directory `README.md`
