@@ -4,6 +4,7 @@ This directory contains scripts for video processing and editing tasks.
 
 ## Contents
 
+- **ps5_convert.sh** - Convert PS5 .webm recordings to .mp4 (auto-detects SDR/HDR)
 - **video-ocr.sh** - OCR pipeline for searching text in videos
 - **detect-silence.sh** - Detect silent parts in videos for easier editing
 - **sidebar-check.sh** - Calculate sidebar/letterbox space for overlaying images on a video timeline
@@ -23,6 +24,72 @@ Or install manually:
 brew install ffmpeg imagemagick parallel tesseract
 brew install bash  # sidebar-check.sh requires bash 4+ (macOS ships with 3.x)
 ```
+
+---
+
+## ps5_convert.sh
+
+Convert PS5 Share capture `.webm` files to `.mp4`. Automatically detects whether each file is SDR or HDR and applies the appropriate encoding path.
+
+| Source | `--mode sdr` (default) | `--mode hdr` |
+|--------|------------------------|--------------|
+| SDR (bt709) | re-encode → H.264 | re-encode → H.264 (warns no HDR possible) |
+| HDR (smpte2084 / HLG) | tone-map → SDR H.264 | preserve HDR → HEVC H.265 |
+
+> **Note:** PS5 Share captures are VP9 Profile 0, 8-bit, BT.709 SDR — not HDR — despite being 4K. The HDR path exists for future-proofing or other sources.
+
+### Prerequisites
+
+- `ffmpeg` with `libzimg` (`zscale`) for the HDR→SDR tone-mapping path
+- `ffprobe` (included with ffmpeg)
+
+```bash
+brew install ffmpeg-full  # includes libzimg/zscale
+```
+
+### Usage
+
+```bash
+./ps5_convert.sh <directory> [--mode sdr|hdr] [--overwrite|--skip]
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--mode sdr` | Tone-map HDR→SDR; re-encode SDR as-is | ✓ |
+| `--mode hdr` | Preserve HDR metadata, encode as HEVC H.265 | - |
+| `--overwrite` | Always overwrite existing `.mp4` files without prompting | - |
+| `--skip` | Always skip existing `.mp4` files without prompting | - |
+| *(neither)* | Prompt per file when a `.mp4` already exists | ✓ |
+
+### Examples
+
+**Convert all .webm files to SDR .mp4 (default, prompt on conflict):**
+```bash
+./ps5_convert.sh ~/Movies/PS5/CREATE/Video\ Clips/Burnout\ Paradise\ Remastered
+```
+
+**Resume a partial run — skip already-converted files:**
+```bash
+./ps5_convert.sh ~/Movies/PS5/CREATE/Video\ Clips/Burnout\ Paradise\ Remastered --skip
+```
+
+**Re-encode everything, overwrite without prompting:**
+```bash
+./ps5_convert.sh ~/Movies/PS5/CREATE/Video\ Clips/Burnout\ Paradise\ Remastered --overwrite
+```
+
+**Preserve HDR, output HEVC:**
+```bash
+./ps5_convert.sh ~/Movies/PS5/CREATE/Video\ Clips/Astro\ Bot --mode hdr
+```
+
+### Behaviour
+
+- On conflict (existing `.mp4`): prompts by default; use `--skip` to auto-skip or `--overwrite` to auto-overwrite
+- `--overwrite` and `--skip` are mutually exclusive
+- Each file is probed for `color_transfer` to detect HDR before encoding
+- On failure, partial `.mp4` output is deleted automatically
+- Prints a summary of converted / skipped / failed counts
 
 ---
 

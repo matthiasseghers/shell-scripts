@@ -10,19 +10,27 @@ The test directory structure **mirrors the scripts directory** for easy navigati
 tests/
 ├── README.md
 ├── backup/
-│   ├── automated_backup_restic.bats
 │   ├── emulator_saves_manual.bats
-│   └── emulator_saves_restic.bats
+│   ├── emulator_saves_manual.integration.bats
+│   ├── emulator_saves_restic.bats
+│   └── emulator_saves_restic.integration.bats
 ├── data/
 │   └── pdf_to_csv.bats
 └── video/
     ├── detect-silence.bats
+    ├── detect-silence.integration.bats
+    ├── ps5_convert.bats
+    ├── sidebar-check.bats
+    ├── sidebar-check.integration.bats
     ├── video-ocr.bats
+    ├── video-ocr.integration.bats
     └── fcp/
-        └── extract_markers.bats
+        ├── extract_markers.bats
+        └── extract_markers.integration.bats
 ```
 
 This 1:1 mapping makes it easy to find the test file for any script:
+- `scripts/video/ps5_convert.sh` → `tests/video/ps5_convert.bats`
 - `scripts/video/video-ocr.sh` → `tests/video/video-ocr.bats`
 - `scripts/backup/emulator_saves_manual.sh` → `tests/backup/emulator_saves_manual.bats`
 - `scripts/video/fcp/extract_markers.sh` → `tests/video/fcp/extract_markers.bats`
