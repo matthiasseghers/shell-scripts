@@ -86,7 +86,7 @@ fi
 WEBM_FILES=()
 while IFS= read -r -d '' file; do
   WEBM_FILES+=("$file")
-done < <(find "$INPUT_DIR" -maxdepth 1 -iname "*.webm" -print0)
+done < <(find "$INPUT_DIR" -maxdepth 1 -iname "*.webm" -print0 | sort -z)
 
 TOTAL=${#WEBM_FILES[@]}
 
