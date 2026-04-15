@@ -116,7 +116,7 @@ for WEBM in "${WEBM_FILES[@]}"; do
   # Handle existing .mp4
   if [ -f "$MP4" ]; then
     if [[ "$CONFLICT" == "skip" ]]; then
-      echo -e "  ${YELLOW}⚠ Skipped${RESET} — ${BASENAME}.mp4 already exists"
+      echo -e "  ${YELLOW}⚠ Skipped${RESET} — $MP4"
       SKIPPED=$((SKIPPED + 1))
       echo ""
       continue
@@ -124,7 +124,7 @@ for WEBM in "${WEBM_FILES[@]}"; do
       echo -e "  ${YELLOW}⚠ ${BASENAME}.mp4 already exists.${RESET} Overwrite? [y/N] \c"
       read -r REPLY
       if [[ "$REPLY" != "y" && "$REPLY" != "Y" ]]; then
-        echo -e "  ${YELLOW}Skipped${RESET}"
+        echo -e "  ${YELLOW}Skipped${RESET} — $MP4"
         SKIPPED=$((SKIPPED + 1))
         echo ""
         continue
@@ -171,7 +171,7 @@ for WEBM in "${WEBM_FILES[@]}"; do
   FFMPEG_ARGS+=(-c:a copy "$MP4")
 
   if ffmpeg "${FFMPEG_ARGS[@]}" 2>&1; then
-    echo -e "\n  ${GREEN}✓ Done${RESET} → $(basename "$MP4")"
+    echo -e "\n  ${GREEN}✓ Done${RESET} → $MP4"
     CONVERTED=$((CONVERTED + 1))
   else
     echo -e "\n  ${RED}✗ Failed${RESET} — check the error above"
