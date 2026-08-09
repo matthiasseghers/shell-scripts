@@ -246,8 +246,6 @@ for emulator in "${TARGETS[@]}"; do
   case "$ACTION" in
     --archive | -a)
       do_archive "$emulator"
-      [[ "$ACTION" == "--archive" || "$ACTION" == "-a" ]] &&
-        [[ "$MAX_BACKUPS" -gt 0 ]] && do_prune "$emulator" "$MAX_BACKUPS"
       ;;
     --list | -l)
       do_list "$emulator"
